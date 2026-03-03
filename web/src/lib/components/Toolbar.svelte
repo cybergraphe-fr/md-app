@@ -11,6 +11,8 @@
     sidebarOpen,
     theme,
     createFile,
+    triggerFormatAction,
+    type FormatActionKind,
   } from '$lib/stores/files';
   import FontPicker from './FontPicker.svelte';
   import {
@@ -28,6 +30,21 @@
     LayoutTemplate,
     Search,
     History,
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Heading1,
+    Heading2,
+    Heading3,
+    Pilcrow,
+    List,
+    ListOrdered,
+    ListChecks,
+    Code,
+    SquareCode,
+    Quote,
+    Link2,
   } from 'lucide-svelte';
 
   let {
@@ -49,6 +66,28 @@
   };
 
   const viewLabels = { split: 'Split', editor: 'Editor', preview: 'Preview' };
+
+  const formatButtons: Array<{
+    action: FormatActionKind;
+    label: string;
+    icon: typeof Bold;
+  }> = [
+    { action: 'bold', label: 'Bold', icon: Bold },
+    { action: 'italic', label: 'Italic', icon: Italic },
+    { action: 'underline', label: 'Underline', icon: Underline },
+    { action: 'strike', label: 'Strike', icon: Strikethrough },
+    { action: 'heading1', label: 'H1', icon: Heading1 },
+    { action: 'heading2', label: 'H2', icon: Heading2 },
+    { action: 'heading3', label: 'H3', icon: Heading3 },
+    { action: 'paragraph', label: 'Paragraph', icon: Pilcrow },
+    { action: 'unorderedList', label: 'Bullet list', icon: List },
+    { action: 'orderedList', label: 'Numbered list', icon: ListOrdered },
+    { action: 'taskList', label: 'Task list', icon: ListChecks },
+    { action: 'quote', label: 'Quote', icon: Quote },
+    { action: 'codeInline', label: 'Inline code', icon: Code },
+    { action: 'codeBlock', label: 'Code block', icon: SquareCode },
+    { action: 'link', label: 'Link', icon: Link2 },
+  ];
 
   function handlePrint(): void {
     window.print();
@@ -178,11 +217,27 @@
   </div>
 </header>
 
+<div class="quick-format no-print" aria-label="Quick formatting toolbar" role="toolbar">
+  {#each formatButtons as button (button.action)}
+    {@const FormatIcon = button.icon}
+    <button
+      class="btn btn-format"
+      title={button.label}
+      aria-label={button.label}
+      onclick={() => triggerFormatAction(button.action)}
+    >
+      <FormatIcon size={14} />
+      <span>{button.label}</span>
+    </button>
+  {/each}
+</div>
+
 <style>
   .toolbar {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
+    flex-wrap: wrap;
     padding: 0.45rem 1rem;
     background: var(--bg-toolbar);
     backdrop-filter: var(--glass-blur);
@@ -196,7 +251,7 @@
     align-items: center;
     gap: 0.4rem;
     flex: 1;
-    min-width: 0;
+    min-width: 240px;
   }
 
   .toolbar-center {
@@ -214,6 +269,7 @@
     gap: 0.3rem;
     flex: 1;
     justify-content: flex-end;
+    min-width: 250px;
   }
 
   .doc-title {
@@ -272,6 +328,29 @@
     font-weight: 500;
   }
 
+  .quick-format {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--bg-toolbar) 92%, transparent);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .btn-format {
+    min-height: 32px;
+    padding: 0.35rem 0.58rem;
+    gap: 0.3rem;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .btn-format span {
+    line-height: 1;
+  }
+
   .divider-v {
     width: 1px;
     height: 20px;
@@ -285,4 +364,76 @@
     transition: color 0.15s;
   }
   .sidebar-toggle:hover { color: var(--accent); }
+
+  @media (max-width: 1024px) {
+    .toolbar {
+      padding: 0.45rem 0.75rem;
+      gap: 0.4rem;
+    }
+
+    .toolbar-left {
+      order: 1;
+      min-width: 100%;
+    }
+
+    .toolbar-center {
+      order: 2;
+      margin-right: auto;
+    }
+
+    .toolbar-right {
+      order: 3;
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow-x: auto;
+      justify-content: flex-start;
+      padding-bottom: 1px;
+    }
+
+    .doc-title {
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .toolbar {
+      padding: 0.4rem 0.6rem;
+    }
+
+    .toolbar-center {
+      width: 100%;
+      justify-content: center;
+      order: 3;
+    }
+
+    .toolbar-right {
+      width: 100%;
+      order: 2;
+      gap: 0.25rem;
+    }
+
+    .view-btn .view-label {
+      display: none;
+    }
+
+    .btn {
+      min-height: 32px;
+      padding: 0.35rem 0.55rem;
+    }
+
+    .divider-v {
+      height: 16px;
+      margin: 0 0.1rem;
+    }
+
+    .quick-format {
+      padding: 0.35rem 0.6rem;
+    }
+
+    .btn-format {
+      min-height: 30px;
+      padding: 0.3rem 0.48rem;
+      font-size: 11.5px;
+    }
+  }
 </style>

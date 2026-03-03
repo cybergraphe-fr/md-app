@@ -26,6 +26,8 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 | **Images** | Full image rendering in preview (standalone + linked badges), lazy-loading, external images via HTTPS |
 | **Code blocks** | Syntax highlighting via `highlight.js` (200+ languages), one-click copy |
 | **Editor** | CodeMirror 6 – markdown syntax highlighting, line numbers, fold gutter, Vim-like keyboard, autocomplete |
+| **Quick formatting bar** | One-tap formatting actions in UI: bold, italic, underline, strike, H1/H2/H3, paragraph, lists (bullet/ordered/tasks), quote, inline code, code block, links |
+| **Responsive UI** | Mobile/tablet optimized layout: adaptive top menu, harmonized button sizes, horizontal quick-toolbar scroll, stacked split view on small screens, sidebar overlay on touch devices |
 | **Font picker** | Per-style font selection (H1–H5, body text). 14 fonts: Lora, Merriweather, Playfair Display, Source Serif 4, Tangerine, Inter, Roboto, Open Sans, Poppins, Exo 2, Ubuntu, Nunito Sans, Raleway, Helvetica — assign any font to any heading level or body text. "Apply everywhere" shortcut for global change. Config persisted in localStorage |
 | **Typography** | Lora serif default, Inter for UI, JetBrains Mono for code |
 | **Themes** | Light / Dark, auto-detects system preference, persists in localStorage |
@@ -216,6 +218,29 @@ or `?api_key=your-key` query param.
 | `Ctrl/⌘ + F` | Search in editor |
 | `Tab` | Indent |
 | `Shift + Tab` | Dedent |
+
+---
+
+## CI/CD & Production Deployment
+
+Two workflows are available in `.github/workflows/`:
+
+- `ci.yml`: quality gate on push/PR (`go vet`, Go build/tests, Svelte type-check, frontend build, Docker build)
+- `cd-prod.yml`: validation + production deploy over SSH on `main` and manual trigger
+
+To enable automated production deployment, configure these GitHub secrets:
+
+- `MD_PROD_SSH_HOST`
+- `MD_PROD_SSH_USER`
+- `MD_PROD_SSH_KEY`
+- `MD_PROD_SSH_PORT` (optional, default `22`)
+- `MD_PROD_APP_DIR` (optional, default `/srv/apps/md`)
+
+Deploy job behavior:
+
+1. Pull latest `main` on the production host
+2. Rebuild/restart with `docker compose -f docker-compose.nas.yml up -d --build --remove-orphans`
+3. Prune dangling images and output service status
 
 ---
 

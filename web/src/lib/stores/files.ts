@@ -17,6 +17,30 @@ export const viewMode = writable<'split' | 'editor' | 'preview'>('split');
 export const previewFont = writable<string>('Lora');
 export const sidebarOpen = writable<boolean>(false);
 
+export type FormatActionKind =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'strike'
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
+  | 'paragraph'
+  | 'unorderedList'
+  | 'orderedList'
+  | 'taskList'
+  | 'codeInline'
+  | 'codeBlock'
+  | 'quote'
+  | 'link';
+
+export interface FormatAction {
+  id: number;
+  kind: FormatActionKind;
+}
+
+export const formatAction = writable<FormatAction>({ id: 0, kind: 'bold' });
+
 // ---- Font Config: headings + body ----
 export interface FontConfig {
   headings: string;
@@ -253,4 +277,11 @@ export function toggleSidebar(): void {
     localStorage.setItem('md-sidebar', String(next));
     return next;
   });
+}
+
+export function triggerFormatAction(kind: FormatActionKind): void {
+  formatAction.update((current) => ({
+    id: current.id + 1,
+    kind,
+  }));
 }

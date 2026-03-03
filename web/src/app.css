@@ -377,8 +377,10 @@ html, body {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
+  min-height: 34px;
+  padding: 0.38rem 0.68rem;
   font-size: 13px;
   font-family: var(--font-ui);
   font-weight: 500;
@@ -419,6 +421,8 @@ html, body {
   border-color: var(--danger);
 }
 .btn-icon {
+  min-width: 34px;
+  min-height: 34px;
   padding: 0.35rem;
   border: none;
   background: transparent;
@@ -430,6 +434,19 @@ html, body {
 .btn-icon:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+@media (max-width: 720px) {
+  .btn {
+    min-height: 32px;
+    padding: 0.34rem 0.55rem;
+    font-size: 12px;
+  }
+
+  .btn-icon {
+    min-width: 32px;
+    min-height: 32px;
+  }
 }
 
 .divider { border: none; border-top: 1px solid var(--border); margin: 0; }

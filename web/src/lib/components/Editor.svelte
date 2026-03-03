@@ -8,7 +8,13 @@
   import { languages } from '@codemirror/language-data';
   import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, foldGutter } from '@codemirror/language';
   import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
-  import { activeContent, setContent, theme } from '$lib/stores/files';
+  import {
+    activeContent,
+    setContent,
+    theme,
+    formatAction,
+    type FormatActionKind,
+  } from '$lib/stores/files';
 
   let container: HTMLDivElement;
   let view: EditorView | undefined;
@@ -150,11 +156,155 @@
   function wrapSelection(v: EditorView, wrapper: string): boolean {
     const { from, to } = v.state.selection.main;
     const sel = v.state.sliceDoc(from, to);
+    const hasSelection = from !== to;
+    const fallbackText = wrapper === '`' ? 'code' : 'text';
+    const value = hasSelection ? sel : fallbackText;
     v.dispatch({
-      changes: { from, to, insert: `${wrapper}${sel}${wrapper}` },
-      selection: { anchor: from + wrapper.length, head: to + wrapper.length },
+      changes: { from, to, insert: `${wrapper}${value}${wrapper}` },
+      selection: {
+        anchor: from + wrapper.length,
+        head: from + wrapper.length + value.length,
+      },
     });
     return true;
+  }
+
+  function updateCurrentLine(v: EditorView, updater: (lineText: string) => { text: string; selectionOffset?: number }): void {
+    const { from, to } = v.state.selection.main;
+    const line = v.state.doc.lineAt(from);
+    const updated = updater(line.text);
+    const selectionOffset = updated.selectionOffset ?? 0;
+    v.dispatch({
+      changes: {
+        from: line.from,
+        to: line.to,
+        insert: updated.text,
+      },
+      selection: {
+        anchor: Math.max(line.from, from + selectionOffset),
+        head: Math.max(line.from, to + selectionOffset),
+      },
+    });
+  }
+
+  function prefixLine(v: EditorView, prefix: string): void {
+    updateCurrentLine(v, (lineText) => ({
+      text: `${prefix}${lineText}`,
+      selectionOffset: prefix.length,
+    }));
+  }
+
+  function replaceHeading(v: EditorView, level: 1 | 2 | 3): void {
+    const prefix = `${'#'.repeat(level)} `;
+    updateCurrentLine(v, (lineText) => {
+      const baseText = lineText.replace(/^#{1,6}\s+/, '');
+      const text = baseText.length === 0 ? prefix : `${prefix}${baseText}`;
+      return {
+        text,
+        selectionOffset: text.length - lineText.length,
+      };
+    });
+  }
+
+  function asParagraph(v: EditorView): void {
+    updateCurrentLine(v, (lineText) => {
+      const text = lineText
+        .replace(/^#{1,6}\s+/, '')
+        .replace(/^>\s+/, '')
+        .replace(/^[-*+]\s+/, '')
+        .replace(/^\d+\.\s+/, '')
+        .replace(/^-\s+\[[ xX]\]\s+/, '');
+      return {
+        text,
+        selectionOffset: text.length - lineText.length,
+      };
+    });
+  }
+
+  function insertLink(v: EditorView): void {
+    const { from, to } = v.state.selection.main;
+    const selection = v.state.sliceDoc(from, to).trim();
+    const label = selection || 'link text';
+    const insert = `[${label}](https://)`;
+    const urlStart = from + insert.indexOf('https://');
+    v.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: urlStart, head: urlStart + 'https://'.length },
+    });
+  }
+
+  function insertCodeBlock(v: EditorView): void {
+    const { from, to } = v.state.selection.main;
+    const selection = v.state.sliceDoc(from, to);
+    const hasSelection = selection.trim().length > 0;
+    const body = hasSelection ? `\n${selection}\n` : '\ncode\n';
+    const insert = `\`\`\`\n${body}\`\`\``;
+    const anchor = from + 4;
+    const head = hasSelection ? anchor + selection.length : anchor + 4;
+    v.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor, head },
+    });
+  }
+
+  function applyFormat(kind: FormatActionKind): void {
+    if (!view) return;
+    switch (kind) {
+      case 'bold':
+        wrapSelection(view, '**');
+        break;
+      case 'italic':
+        wrapSelection(view, '_');
+        break;
+      case 'underline': {
+        const { from, to } = view.state.selection.main;
+        const selection = view.state.sliceDoc(from, to);
+        const value = selection || 'text';
+        const insert = `<u>${value}</u>`;
+        view.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: from + 3, head: from + 3 + value.length },
+        });
+        break;
+      }
+      case 'strike':
+        wrapSelection(view, '~~');
+        break;
+      case 'heading1':
+        replaceHeading(view, 1);
+        break;
+      case 'heading2':
+        replaceHeading(view, 2);
+        break;
+      case 'heading3':
+        replaceHeading(view, 3);
+        break;
+      case 'paragraph':
+        asParagraph(view);
+        break;
+      case 'unorderedList':
+        prefixLine(view, '- ');
+        break;
+      case 'orderedList':
+        prefixLine(view, '1. ');
+        break;
+      case 'taskList':
+        prefixLine(view, '- [ ] ');
+        break;
+      case 'quote':
+        prefixLine(view, '> ');
+        break;
+      case 'codeInline':
+        wrapSelection(view, '`');
+        break;
+      case 'codeBlock':
+        insertCodeBlock(view);
+        break;
+      case 'link':
+        insertLink(view);
+        break;
+    }
+    view.focus();
   }
 
   let currentTheme: 'light' | 'dark' = 'light';
@@ -173,6 +323,13 @@
         changes: { from: 0, to: view.state.doc.length, insert: c },
       });
     }
+  });
+
+  let lastFormatActionId = 0;
+  const unsubFormatAction = formatAction.subscribe((action) => {
+    if (action.id === 0 || action.id === lastFormatActionId) return;
+    lastFormatActionId = action.id;
+    applyFormat(action.kind);
   });
 
   function recreateExtensions(dark: boolean): void {
@@ -200,6 +357,7 @@
   onDestroy(() => {
     unsubTheme();
     unsubContent();
+    unsubFormatAction();
     view?.destroy();
   });
 </script>

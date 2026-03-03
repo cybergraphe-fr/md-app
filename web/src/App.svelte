@@ -9,7 +9,7 @@
   import SearchModal from '$lib/components/SearchModal.svelte';
   import VersionHistory from '$lib/components/VersionHistory.svelte';
   import Particles from '$lib/components/Particles.svelte';
-  import { loadFiles, initTheme, viewMode, error, theme, sidebarOpen } from '$lib/stores/files';
+  import { loadFiles, initTheme, viewMode, error, theme, sidebarOpen, toggleSidebar } from '$lib/stores/files';
   import { AlertCircle, X } from 'lucide-svelte';
 
   let exportOpen = $state(false);
@@ -41,6 +41,7 @@
     <!-- Sidebar (collapsible) -->
     {#if $sidebarOpen}
       <Sidebar />
+      <button class="sidebar-backdrop no-print" aria-label="Close files panel" onclick={toggleSidebar}></button>
     {/if}
 
     <!-- Main area -->
@@ -253,5 +254,89 @@
   .kofi-link:hover {
     color: #ff5e5b;
     background: rgba(255, 94, 91, 0.08);
+  }
+
+  .sidebar-backdrop {
+    display: none;
+  }
+
+  @media (max-width: 1024px) {
+    .workspace {
+      height: auto;
+      min-height: 0;
+    }
+
+    :global(.sidebar) {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: min(84vw, 320px);
+      min-width: min(84vw, 320px);
+      z-index: 40;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .sidebar-backdrop {
+      display: block;
+      position: absolute;
+      inset: 0;
+      border: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 30;
+      cursor: pointer;
+    }
+
+    .app-footer {
+      padding: 0.25rem 0.7rem;
+      gap: 0.6rem;
+      font-size: 10px;
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 820px) {
+    .workspace {
+      flex-direction: column;
+    }
+
+    .pane-divider {
+      width: 100%;
+      height: 1px;
+    }
+
+    .pane-divider::after {
+      inset: -3px 0;
+      cursor: row-resize;
+    }
+
+    .editor-pane,
+    .preview-pane {
+      min-height: 0;
+      height: 50%;
+    }
+
+    .footer-right {
+      margin-left: auto;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .app-footer {
+      padding: 0.2rem 0.55rem;
+      font-size: 9.5px;
+    }
+
+    .kofi-link {
+      padding: 0.1rem 0.35rem;
+      font-size: 9.5px;
+    }
+
+    .footer-left span {
+      max-width: 75vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 </style>
