@@ -7,6 +7,7 @@
   let { isOpen, onClose }: { isOpen: boolean; onClose: () => void } = $props();
 
   const formats = [
+    { id: 'markdown', label: 'Markdown (.md)', desc: 'Source Markdown file', icon: '✍️' },
     { id: 'html', label: 'HTML', desc: 'Standalone web page', icon: '🌐' },
     { id: 'pdf', label: 'PDF', desc: 'Portable document', icon: '📄' },
     { id: 'docx', label: 'Word (.docx)', desc: 'Microsoft Word', icon: '📝' },
@@ -42,6 +43,14 @@
     exportError = null;
 
     try {
+      // Markdown: pure client-side — content is already Markdown, no server call needed
+      if (formatId === 'markdown') {
+        const blob = new Blob([content ?? ''], { type: 'text/markdown;charset=utf-8' });
+        downloadBlob(blob, `${name}${ext}`);
+        exporting = null;
+        return;
+      }
+
       if (id) {
         // File is saved — use the saved-file export endpoint
         if (formatId === 'html') {
@@ -87,7 +96,7 @@
 
   function getExtension(formatId: string): string {
     const exts: Record<string, string> = {
-      pdf: '.pdf', docx: '.docx', odt: '.odt', epub: '.epub',
+      markdown: '.md', pdf: '.pdf', docx: '.docx', odt: '.odt', epub: '.epub',
       latex: '.tex', rst: '.rst', asciidoc: '.adoc', textile: '.textile',
       mediawiki: '.wiki', plain: '.txt', html: '.html',
     };
