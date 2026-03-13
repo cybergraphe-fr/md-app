@@ -13,8 +13,6 @@
 # For production with Traefik → use docker-compose.nas.yml or .cloud.yml
 # ═══════════════════════════════════════════════════════════════════════════
 
-version: '3.8'
-
 services:
 
   # ── API + Frontend ───────────────────────────────────────────────────

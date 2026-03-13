@@ -184,7 +184,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		content = preprocessPageBreaks(content)
 	}
 
-	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(inputFile, []byte(content), 0600); err != nil {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
@@ -368,7 +368,7 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		rawContent = preprocessPageBreaks(rawContent)
 	}
 
-	if err := os.WriteFile(inputFile, []byte(rawContent), 0644); err != nil {
+	if err := os.WriteFile(inputFile, []byte(rawContent), 0600); err != nil {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}

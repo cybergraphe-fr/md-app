@@ -20,6 +20,7 @@ import (
 	"go.abhg.dev/goldmark/frontmatter"
 
 	"md/internal/cache"
+	"md/internal/config"
 	"md/internal/storage"
 )
 
@@ -69,10 +70,11 @@ func renderMarkdown(content string) (string, error) {
 type filesHandler struct {
 	store *storage.Storage
 	cache *cache.Client
+	cfg   *config.Config
 }
 
-func newFilesHandler(store *storage.Storage, c *cache.Client) *filesHandler {
-	return &filesHandler{store: store, cache: c}
+func newFilesHandler(store *storage.Storage, c *cache.Client, cfg *config.Config) *filesHandler {
+	return &filesHandler{store: store, cache: c, cfg: cfg}
 }
 
 // GET /api/files
@@ -245,7 +247,7 @@ func (h *filesHandler) renderRaw(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/files/import  (multipart form upload)
 func (h *filesHandler) importFile(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(50 << 20); err != nil {
+	if err := r.ParseMultipartForm(h.cfg.MaxFileSizeMB << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "bad multipart form")
 		return
 	}

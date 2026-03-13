@@ -32,8 +32,6 @@
 #
 # ═══════════════════════════════════════════════════════════════════════════
 
-version: '3.8'
-
 # ── Docker Secrets ─────────────────────────────────────────────────────
 # Each file contains a single value (no newline). The Go app and Redis
 # both read these from /run/secrets/<name> at startup.

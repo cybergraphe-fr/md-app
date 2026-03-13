@@ -43,7 +43,7 @@ func main() {
 	}
 
 	// Ensure storage directory exists
-	if err := os.MkdirAll(cfg.StoragePath, 0755); err != nil {
+	if err := os.MkdirAll(cfg.StoragePath, 0750); err != nil {
 		slog.Error("failed to create storage directory", "path", cfg.StoragePath, "error", err)
 		os.Exit(1)
 	}

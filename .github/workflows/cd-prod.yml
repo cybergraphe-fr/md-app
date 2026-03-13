@@ -69,14 +69,16 @@ jobs:
       - name: Deploy via SSH
         if: steps.check_secrets.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1
+        env:
+          APP_DIR: ${{ secrets.MD_PROD_APP_DIR || '/srv/apps/md' }}
         with:
           host: ${{ secrets.MD_PROD_SSH_HOST }}
           username: ${{ secrets.MD_PROD_SSH_USER }}
           key: ${{ secrets.MD_PROD_SSH_KEY }}
           port: ${{ secrets.MD_PROD_SSH_PORT || '22' }}
+          envs: APP_DIR
           script: |
             set -e
-            APP_DIR="${{ secrets.MD_PROD_APP_DIR || '/srv/apps/md' }}"
             cd "$APP_DIR"
             git pull --ff-only origin main
             docker compose -f docker-compose.nas.yml up -d --build --remove-orphans

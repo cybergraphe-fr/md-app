@@ -93,7 +93,7 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 	r.Group(func(r chi.Router) {
 		r.Use(apiKeyMiddleware(cfg))
 
-		fh := newFilesHandler(store, c)
+		fh := newFilesHandler(store, c, cfg)
 		eh := newExportHandler(store, cfg)
 		th := newTemplatesHandler()
 		sh := newSearchHandler(store)
