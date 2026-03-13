@@ -91,3 +91,56 @@ func TestPreprocessMarkdown_FlattenedInlineTable_ScreenshotPattern(t *testing.T)
 		t.Fatalf("data row not reconstructed:\n%s", out)
 	}
 }
+
+func TestPreprocessMarkdown_AsteriskBulletsAndInlineSplit(t *testing.T) {
+	in := "Le succès repose sur la confiance.\n * Profil du Porteur : Expert cybersécurité\n * Savoir-faire : Gouvernance\nOffre Pro\n * Licences Coffres (Upsell) : * Pack de 10 : 290 € * Pack de 50 : 950 €"
+	out := preprocessMarkdown(in)
+
+	if !strings.Contains(out, "\n\n- Profil du Porteur : Expert cybersécurité") {
+		t.Fatalf("asterisk list interruption not normalized:\n%s", out)
+	}
+	if !strings.Contains(out, "\n- Savoir-faire : Gouvernance") {
+		t.Fatalf("second asterisk list item missing:\n%s", out)
+	}
+	if !strings.Contains(out, "\n- Licences Coffres (Upsell) :") ||
+		!strings.Contains(out, "\n  - Pack de 10 : 290 €") ||
+		!strings.Contains(out, "\n  - Pack de 50 : 950 €") {
+		t.Fatalf("inline asterisk bullets not split:\n%s", out)
+	}
+}
+
+func TestRenderMarkdown_AsteriskBulletsBecomeList(t *testing.T) {
+	in := "Paragraphe\n * Élément A\n * Élément B"
+	html, err := renderMarkdown(in)
+	if err != nil {
+		t.Fatalf("renderMarkdown error: %v", err)
+	}
+
+	if strings.Count(html, "<li>") < 2 {
+		t.Fatalf("expected list items from asterisk bullets, got:\n%s", html)
+	}
+}
+
+func TestRenderMarkdown_PreservesSimpleLineBreaks(t *testing.T) {
+	in := "**Entreprise :** Cybergraphe\n**Secteur :** LegalTech\n**Positionnement :** ZKG"
+	html, err := renderMarkdown(in)
+	if err != nil {
+		t.Fatalf("renderMarkdown error: %v", err)
+	}
+
+	if !strings.Contains(html, "<br") {
+		t.Fatalf("expected hard line breaks in rendered HTML, got:\n%s", html)
+	}
+	if strings.Count(html, "<strong>") < 3 {
+		t.Fatalf("expected bold labels to remain intact, got:\n%s", html)
+	}
+}
+
+func TestPreprocessMarkdown_StandaloneLeadInBeforeList(t *testing.T) {
+	in := "- Parent\nOffre Enterprise\n- Setup sur-mesure"
+	out := preprocessMarkdown(in)
+
+	if !strings.Contains(out, "- Parent\n\nOffre Enterprise\n\n- Setup sur-mesure") {
+		t.Fatalf("standalone lead-in was not isolated from list blocks:\n%s", out)
+	}
+}

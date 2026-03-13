@@ -46,6 +46,8 @@ var md = goldmark.New(
 	),
 )
 
+const renderCacheVersion = "v2"
+
 // renderMarkdown converts markdown content to an HTML string.
 func renderMarkdown(content string) (string, error) {
 	content = preprocessMarkdown(content)
@@ -145,6 +147,7 @@ func (h *filesHandler) update(w http.ResponseWriter, r *http.Request) {
 	// Invalidate cache
 	if h.cache != nil {
 		_ = h.cache.Delete(r.Context(), "render:"+id)
+		_ = h.cache.Delete(r.Context(), "render:"+renderCacheVersion+":"+id)
 	}
 	writeJSON(w, http.StatusOK, f)
 }
@@ -162,6 +165,7 @@ func (h *filesHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.cache != nil {
 		_ = h.cache.Delete(r.Context(), "render:"+id)
+		_ = h.cache.Delete(r.Context(), "render:"+renderCacheVersion+":"+id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -170,7 +174,7 @@ func (h *filesHandler) delete(w http.ResponseWriter, r *http.Request) {
 // Returns rendered HTML (from cache if available).
 func (h *filesHandler) render(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	cacheKey := "render:" + id
+	cacheKey := "render:" + renderCacheVersion + ":" + id
 
 	// Check cache
 	if h.cache != nil {

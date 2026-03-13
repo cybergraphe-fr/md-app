@@ -8,8 +8,27 @@ import (
 var reInlineHeading = regexp.MustCompile(`\s+(#{1,6}\s+)`)
 var reInlineBullet = regexp.MustCompile(`\s+•\s+`)
 var reInlineSubBullet = regexp.MustCompile(`\s+◦\s+`)
+var reInlineAsteriskBullet = regexp.MustCompile(`\s+\*\s+`)
 var reIndentedHeading = regexp.MustCompile(`^\s{4,}(#{1,6}\s+)`)
 var reTableSep = regexp.MustCompile(`^[\s|:\-]+$`)
+var reListItem = regexp.MustCompile(`^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)`)
+
+func isListItem(line string) bool {
+	return reListItem.MatchString(strings.TrimRight(line, " \t"))
+}
+
+func isSpecialMarkdownLine(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return true
+	}
+	return isListItem(line) ||
+		strings.HasPrefix(trimmed, "#") ||
+		strings.HasPrefix(trimmed, ">") ||
+		strings.HasPrefix(trimmed, "|") ||
+		strings.HasPrefix(trimmed, "```") ||
+		strings.HasPrefix(trimmed, "~~~")
+}
 
 func normalizeInlineTableLine(line string) ([]string, bool) {
 	trimmed := strings.TrimSpace(line)
@@ -97,8 +116,16 @@ func preprocessMarkdown(content string) string {
 	out := make([]string, 0, len(lines)+16)
 	inFence := false
 
-	for _, line := range lines {
+	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
+		nextSignificant := ""
+		for j := i + 1; j < len(lines); j++ {
+			candidate := strings.TrimSpace(lines[j])
+			if candidate != "" {
+				nextSignificant = lines[j]
+				break
+			}
+		}
 
 		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
 			inFence = !inFence
@@ -119,6 +146,13 @@ func preprocessMarkdown(content string) string {
 			line = "- " + strings.TrimPrefix(trimmed, "• ")
 		case strings.HasPrefix(trimmed, "◦ "):
 			line = "  - " + strings.TrimPrefix(trimmed, "◦ ")
+		case strings.HasPrefix(trimmed, "* "):
+			leading := len(line) - len(strings.TrimLeft(line, " \t"))
+			if leading <= 1 {
+				line = "- " + strings.TrimPrefix(trimmed, "* ")
+			} else {
+				line = strings.Repeat(" ", leading) + "- " + strings.TrimPrefix(trimmed, "* ")
+			}
 		}
 
 		if !strings.HasPrefix(strings.TrimLeft(line, " \t"), "#") && reInlineHeading.MatchString(line) {
@@ -136,7 +170,35 @@ func preprocessMarkdown(content string) string {
 			line = reInlineSubBullet.ReplaceAllString(line, "\n  - ")
 		}
 
+		if reInlineAsteriskBullet.MatchString(line) {
+			repl := "\n- "
+			if isListItem(line) {
+				repl = "\n  - "
+			}
+			line = reInlineAsteriskBullet.ReplaceAllString(line, repl)
+		}
+
+		if strings.TrimSpace(line) != "" && isListItem(nextSignificant) && !isSpecialMarkdownLine(line) {
+			if len(out) > 0 && strings.TrimSpace(out[len(out)-1]) != "" {
+				out = append(out, "")
+			}
+			out = append(out, line, "")
+			continue
+		}
+
 		for _, segment := range strings.Split(line, "\n") {
+			if isListItem(segment) && len(out) > 0 {
+				prevRaw := out[len(out)-1]
+				prev := strings.TrimSpace(prevRaw)
+				if prev != "" &&
+					!isListItem(prevRaw) &&
+					!strings.HasPrefix(prev, "|") &&
+					!strings.HasPrefix(prev, "#") &&
+					!strings.HasPrefix(prev, ">") {
+					out = append(out, "")
+				}
+			}
+
 			if tableLines, ok := normalizeInlineTableLine(segment); ok {
 				out = append(out, tableLines...)
 			} else {

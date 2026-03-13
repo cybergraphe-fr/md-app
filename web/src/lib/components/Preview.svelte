@@ -39,7 +39,7 @@
     }),
     {
       gfm: true,
-      breaks: false,
+      breaks: true,
       pedantic: false,
     }
   );
@@ -95,6 +95,18 @@
   // ── Markdown normalization (keeps preview consistent with backend/export) ──
   function normalizeMarkdown(content: string): string {
     if (!content) return content;
+
+    const isListItem = (line: string): boolean => /^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)/.test(line.trimEnd());
+    const isSpecialMarkdownLine = (line: string): boolean => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      return isListItem(line)
+        || trimmed.startsWith('#')
+        || trimmed.startsWith('>')
+        || trimmed.startsWith('|')
+        || trimmed.startsWith('```')
+        || trimmed.startsWith('~~~');
+    };
 
     content = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\u00a0/g, ' ');
 
@@ -162,8 +174,17 @@
       return outRows;
     };
 
-    for (let line of lines) {
+    for (let index = 0; index < lines.length; index++) {
+      let line = lines[index];
       const trimmed = line.trim();
+      let nextSignificant = '';
+      for (let j = index + 1; j < lines.length; j++) {
+        const candidate = lines[j]?.trim() ?? '';
+        if (candidate) {
+          nextSignificant = lines[j];
+          break;
+        }
+      }
 
       if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
         inFence = !inFence;
@@ -183,6 +204,10 @@
         line = `- ${t.slice(2)}`;
       } else if (t.startsWith('◦ ')) {
         line = `  - ${t.slice(2)}`;
+      } else if (t.startsWith('* ')) {
+        const leading = (line.match(/^(\s*)/)?.[1] ?? '').length;
+        const prefix = leading <= 1 ? '' : ' '.repeat(leading);
+        line = `${prefix}- ${t.slice(2)}`;
       }
 
       if (!line.trimStart().startsWith('#') && /\s+(#{1,6}\s+)/.test(line)) {
@@ -197,7 +222,26 @@
         line = line.replace(/\s+◦\s+/g, '\n  - ');
       }
 
+      if (/\s+\*\s+/.test(line)) {
+        const replacement = isListItem(line) ? '\n  - ' : '\n- ';
+        line = line.replace(/\s+\*\s+/g, replacement);
+      }
+
+      if (line.trim() && isListItem(nextSignificant) && !isSpecialMarkdownLine(line)) {
+        if (out.length > 0 && out[out.length - 1]?.trim()) out.push('');
+        out.push(line, '');
+        continue;
+      }
+
       for (const segment of line.split('\n')) {
+        if (isListItem(segment) && out.length > 0) {
+          const prevRaw = out[out.length - 1] ?? '';
+          const prev = prevRaw.trim();
+          if (prev && !isListItem(prevRaw) && !prev.startsWith('|') && !prev.startsWith('#') && !prev.startsWith('>')) {
+            out.push('');
+          }
+        }
+
         const tableLines = normalizeInlineTableLine(segment);
         if (tableLines) out.push(...tableLines);
         else out.push(segment);
@@ -370,7 +414,7 @@
     max-width: 280px;
   }
 
-  .render-error {
+  :global(.render-error) {
     color: var(--danger);
     font-family: var(--font-ui);
   }

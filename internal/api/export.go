@@ -38,6 +38,7 @@ const pandocInputFmt = "markdown" +
 	"+grid_tables" +
 	"+multiline_tables" +
 	"+simple_tables" +
+	"+hard_line_breaks" +
 	"+table_captions" +
 	"+strikeout" +
 	"+task_lists" +
