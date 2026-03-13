@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/hmac"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -35,9 +36,11 @@ func apiKeyMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 			key := r.Header.Get("X-API-Key")
 			if key == "" {
-				key = r.URL.Query().Get("api_key")
+				if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+					key = strings.TrimPrefix(auth, "Bearer ")
+				}
 			}
-			if !strings.EqualFold(key, cfg.APIKey) {
+			if !hmac.Equal([]byte(key), []byte(cfg.APIKey)) {
 				writeError(w, http.StatusUnauthorized, "invalid or missing API key")
 				return
 			}
@@ -49,6 +52,7 @@ func apiKeyMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 // securityHeaders adds hardened HTTP security headers.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")

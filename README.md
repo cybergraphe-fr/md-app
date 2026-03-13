@@ -20,7 +20,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 ## Features
 
 | Category | Details |
-|---|---|
+| --- | --- |
 | **Markdown engine** | Full [CommonMark](https://commonmark.org) + GFM (tables, task lists, strikethrough, autolinks) |
 | **Extended syntax** | Footnotes, definition lists, typographic quotes, emoji `:fire:` 🔥, frontmatter (YAML) |
 | **Images** | Full image rendering in preview (standalone + linked badges), lazy-loading, external images via HTTPS |
@@ -54,7 +54,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 ## Tech Stack
 
 | Layer | Technology | Version |
-|---|---|---|
+| --- | --- | --- |
 | Backend | Go | 1.25 |
 | HTTP router | chi | v5 |
 | Markdown (server) | goldmark | v1.7 |
@@ -123,13 +123,13 @@ npm run dev      # starts on http://localhost:5173 (proxies /api → localhost:8
 All configuration is done via **environment variables**.
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `MD_HTTP_ADDR` | `:8080` | HTTP listen address |
 | `MD_STORAGE_PATH` | `/data` | Root directory for file storage |
 | `MD_REDIS_URL` | _(empty)_ | Redis URL (disable cache if empty) |
-| `MD_API_KEY` | _(empty)_ | Optional API key (`X-API-Key` header). Empty = no auth |
+| `MD_API_KEY` | _(empty)_ | Optional API key (`X-API-Key` or `Authorization: Bearer` header). Empty = no auth |
 | `MD_APP_URL` | `http://localhost:8080` | Public URL of the app |
-| `MD_CORS_ORIGINS` | `*` | Comma-separated allowed CORS origins |
+| `MD_CORS_ORIGINS` | `MD_APP_URL` | Comma-separated allowed CORS origins |
 | `MD_MAX_FILE_SIZE_MB` | `10` | Max upload size in MB |
 | `MD_PANDOC_BINARY` | `pandoc` | Path to pandoc binary |
 | `MD_WEASYPRINT_BINARY` | `weasyprint` | Path to WeasyPrint binary (PDF export) |
@@ -137,7 +137,7 @@ All configuration is done via **environment variables**.
 | `MD_OIDC_CLIENT_ID` | _(empty)_ | OIDC client ID |
 | `MD_OIDC_CLIENT_SECRET` | _(empty)_ | OIDC client secret |
 | `MD_OIDC_REDIRECT_URL` | _(empty)_ | OIDC callback URL (`https://…/api/auth/callback`) |
-| `MD_OIDC_SESSION_KEY` | _(random)_ | HMAC key for session cookies |
+| `MD_OIDC_SESSION_KEY` | _(required when OIDC is enabled)_ | HMAC key for session cookies |
 
 See [`.env.example`](.env.example) for a fully documented sample.
 
@@ -148,7 +148,7 @@ See [`.env.example`](.env.example) for a fully documented sample.
 Base URL: `https://your-domain/api`
 
 | Method | Path | Description |
-|---|---|---|
+| --- | --- | --- |
 | `GET` | `/health` | Health check |
 | `GET` | `/api/files` | List all documents |
 | `POST` | `/api/files` | Create a document `{name, content, path?}` |
@@ -171,8 +171,8 @@ Base URL: `https://your-domain/api`
 | `GET` | `/api/files/:id/events` | SSE stream for collaborative editing |
 | `POST` | `/api/files/:id/broadcast` | Broadcast edit to collaborators |
 | `GET` | `/api/webhooks` | List webhooks |
-| `POST` | `/api/webhooks` | Create webhook `{url, events[], secret}` |
-| `PUT` | `/api/webhooks/:id` | Update webhook |
+| `POST` | `/api/webhooks` | Create webhook `{url, events[], secret}`. Only `https://` public endpoints are accepted |
+| `PUT` | `/api/webhooks/:id` | Update webhook. Only `https://` public endpoints are accepted |
 | `DELETE` | `/api/webhooks/:id` | Delete webhook |
 | `GET` | `/api/plugins` | List loaded plugins |
 | `GET` | `/api/auth/login` | OIDC login redirect _(when configured)_ |
@@ -181,17 +181,25 @@ Base URL: `https://your-domain/api`
 | `GET` | `/api/auth/logout` | Logout |
 
 **Authentication** (when `MD_API_KEY` is set):
+
 ```http
 X-API-Key: your-key
 ```
-or `?api_key=your-key` query param.
+
+Alternative:
+
+```http
+Authorization: Bearer your-key
+```
+
+The query-string form is intentionally rejected to avoid leaking credentials in logs, browser history and proxies.
 
 ---
 
 ## Export Formats
 
 | Format | File | Engine |
-|---|---|---|
+| --- | --- | --- |
 | HTML | `.html` | goldmark (Go, built-in) |
 | PDF | `.pdf` | Pandoc + WeasyPrint |
 | Word | `.docx` | Pandoc |
@@ -212,7 +220,7 @@ or `?api_key=your-key` query param.
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
-|---|---|
+| --- | --- |
 | `Ctrl/⌘ + S` | Save document |
 | `Ctrl/⌘ + B` | Bold selection |
 | `Ctrl/⌘ + I` | Italic selection |
@@ -249,7 +257,7 @@ Deploy job behavior:
 
 ## Security Architecture
 
-```
+```text
 Internet → Traefik (TLS termination)
              │
              ├── CrowdSec Bouncer (rate limiting, IP reputation)
@@ -258,6 +266,13 @@ Internet → Traefik (TLS termination)
                    │
                    └── Redis (cache, localhost only)
 ```
+
+Additional runtime hardening in `main`:
+
+- Webhook secrets are stored on disk but no longer exposed by list/update API responses.
+- Webhook registration and delivery reject loopback, link-local and private IP targets to reduce SSRF risk.
+- The live preview and unsaved HTML export sanitize rendered HTML before injection/download.
+- OIDC startup now refuses insecure default session signing and requires an explicit `MD_OIDC_SESSION_KEY`.
 
 - All traffic is HTTPS-only (HSTS enforced via Traefik labels)
 - CrowdSec provides IP reputation filtering and rate limiting
@@ -271,7 +286,7 @@ Internet → Traefik (TLS termination)
 
 ## Project Structure
 
-```
+```text
 apps/md/           ← (rename to "md" in production)
 ├── cmd/
 │   └── server/

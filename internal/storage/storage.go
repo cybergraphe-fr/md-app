@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -18,16 +20,23 @@ import (
 var (
 	ErrNotFound  = errors.New("file not found")
 	ErrForbidden = errors.New("access denied")
+	ErrInvalidID = errors.New("invalid file ID")
+
+	uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
+
+func validID(id string) bool {
+	return uuidRe.MatchString(id)
+}
 
 // File represents a stored markdown document.
 type File struct {
 	ID        string    `json:"id"`
-	Name      string    `json:"name"`       // filename without extension
-	Slug      string    `json:"slug"`       // URL-safe name
-	Path      string    `json:"path"`       // relative path (folder/subfolder)
+	Name      string    `json:"name"` // filename without extension
+	Slug      string    `json:"slug"` // URL-safe name
+	Path      string    `json:"path"` // relative path (folder/subfolder)
 	Size      int64     `json:"size"`
-	Hash      string    `json:"hash"`       // SHA-256 of content
+	Hash      string    `json:"hash"` // SHA-256 of content
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -50,24 +59,34 @@ func New(root string) *Storage {
 
 // metaPath returns the path to a file's JSON metadata sidecar.
 func (s *Storage) metaPath(id string) string {
+	if !validID(id) {
+		return ""
+	}
 	return filepath.Join(s.root, ".meta", id+".json")
 }
 
 // contentPath returns the path to a file's markdown content.
 func (s *Storage) contentPath(id string) string {
+	if !validID(id) {
+		return ""
+	}
 	return filepath.Join(s.root, "files", id+".md")
 }
 
 // saveMeta persists a File's metadata.
 func (s *Storage) saveMeta(f File) error {
-	if err := os.MkdirAll(filepath.Dir(s.metaPath(f.ID)), 0755); err != nil {
+	metaPath := s.metaPath(f.ID)
+	if metaPath == "" {
+		return ErrInvalidID
+	}
+	if err := os.MkdirAll(filepath.Dir(metaPath), 0750); err != nil {
 		return err
 	}
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.metaPath(f.ID), b, 0644)
+	return os.WriteFile(metaPath, b, 0600)
 }
 
 // Create stores a new markdown document and returns its metadata.
@@ -75,11 +94,15 @@ func (s *Storage) Create(name, relPath, content string) (File, error) {
 	id := uuid.New().String()
 	now := time.Now().UTC()
 
-	if err := os.MkdirAll(filepath.Join(s.root, "files"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(s.root, "files"), 0750); err != nil {
 		return File{}, err
 	}
 
-	if err := os.WriteFile(s.contentPath(id), []byte(content), 0644); err != nil {
+	contentPath := s.contentPath(id)
+	if contentPath == "" {
+		return File{}, ErrInvalidID
+	}
+	if err := os.WriteFile(contentPath, []byte(content), 0600); err != nil {
 		return File{}, err
 	}
 
@@ -108,7 +131,11 @@ func (s *Storage) GetContent(id string) (FileWithContent, error) {
 	if err != nil {
 		return FileWithContent{}, err
 	}
-	b, err := os.ReadFile(s.contentPath(id))
+	contentPath := s.contentPath(id)
+	if contentPath == "" {
+		return FileWithContent{}, ErrInvalidID
+	}
+	b, err := os.ReadFile(contentPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return FileWithContent{}, ErrNotFound
@@ -120,7 +147,11 @@ func (s *Storage) GetContent(id string) (FileWithContent, error) {
 
 // GetMeta returns the metadata for a file.
 func (s *Storage) GetMeta(id string) (File, error) {
-	b, err := os.ReadFile(s.metaPath(id))
+	metaPath := s.metaPath(id)
+	if metaPath == "" {
+		return File{}, ErrInvalidID
+	}
+	b, err := os.ReadFile(metaPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return File{}, ErrNotFound
@@ -141,7 +172,11 @@ func (s *Storage) Update(id, name, content string) (File, error) {
 		return File{}, err
 	}
 
-	if err := os.WriteFile(s.contentPath(id), []byte(content), 0644); err != nil {
+	contentPath := s.contentPath(id)
+	if contentPath == "" {
+		return File{}, ErrInvalidID
+	}
+	if err := os.WriteFile(contentPath, []byte(content), 0600); err != nil {
 		return File{}, err
 	}
 
@@ -163,9 +198,14 @@ func (s *Storage) Delete(id string) error {
 	if _, err := s.GetMeta(id); err != nil {
 		return err
 	}
-	_ = os.Remove(s.contentPath(id))
-	_ = os.Remove(s.metaPath(id))
-	return nil
+	contentPath := s.contentPath(id)
+	metaPath := s.metaPath(id)
+	if contentPath == "" || metaPath == "" {
+		return ErrInvalidID
+	}
+	errContent := os.Remove(contentPath)
+	errMeta := os.Remove(metaPath)
+	return errors.Join(errContent, errMeta)
 }
 
 // List returns all file metadata, sorted by UpdatedAt desc.
@@ -187,6 +227,7 @@ func (s *Storage) List() ([]File, error) {
 		id := strings.TrimSuffix(e.Name(), ".json")
 		f, err := s.GetMeta(id)
 		if err != nil {
+			slog.Warn("skipping corrupted file metadata", "id", id, "error", err)
 			continue
 		}
 		files = append(files, f)

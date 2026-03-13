@@ -3,6 +3,7 @@
   import { Marked } from 'marked';
   import { markedHighlight } from 'marked-highlight';
   import markedFootnote from 'marked-footnote';
+  import DOMPurify from 'dompurify';
   import hljs from 'highlight.js';
   import { activeContent } from '$lib/stores/files';
 
@@ -273,7 +274,7 @@
       const preprocessed = normalizeMarkdown(content).replace(pageBreakRe, pageBreakHtml);
       let html = marked.parse(preprocessed) as string;
       html = processKaTeX(html);
-      renderedHtml = html;
+      renderedHtml = DOMPurify.sanitize(html);
     } catch {
       renderedHtml = `<p class="render-error">Render error</p>`;
     }

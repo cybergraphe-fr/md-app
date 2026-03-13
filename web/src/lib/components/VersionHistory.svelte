@@ -73,6 +73,13 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') onClose();
   }
+
+  function handleVersionKeydown(e: KeyboardEvent, v: Version) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      previewVersion(v);
+    }
+  }
 </script>
 
 {#if isOpen}
@@ -100,8 +107,13 @@
             </div>
           {:else}
             {#each versions as v (v.id)}
-              <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-              <div class="version-item" onclick={() => previewVersion(v)}>
+              <div
+                class="version-item"
+                role="button"
+                tabindex="0"
+                onclick={() => previewVersion(v)}
+                onkeydown={(e) => handleVersionKeydown(e, v)}
+              >
                 <div class="version-info">
                   <span class="version-date">{formatDate(v.created_at)}</span>
                   <span class="version-meta">{formatSize(v.size)} · {v.hash.slice(0, 8)}</span>
