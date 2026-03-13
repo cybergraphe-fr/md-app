@@ -1,0 +1,21 @@
+version: "2"
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+issues:
+  exclude-rules:
+    - linters:
+        - errcheck
+      source: "(fmt\\.Fprint|w\\.Write|resp\\.Body\\.Close|rows\\.Close|f\\.Close|io\\.Copy|rand\\.Read|os\\.Remove)"
+    - path: _test\.go
+      linters:
+        - errcheck
+  exclude-dirs:
+    - .github
+    - .claude
+    - web
+    - pandoc

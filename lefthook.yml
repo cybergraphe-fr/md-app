@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.go"
+      run: golangci-lint run --new-from-rev=HEAD
+    vet:
+      glob: "*.go"
+      run: go vet ./...
+    build:
+      glob: "*.go"
+      run: go build ./cmd/server

@@ -1,0 +1,41 @@
+# Data & runtime
+data/
+redis_data/
+certs/
+logs/
+coverage/
+
+# Git & IDE
+.git/
+.github/
+.claude/
+.sessions/
+.vscode/
+.idea/
+
+# Markdown (keep pandoc/)
+*.md
+!pandoc/**
+
+# Project config
+LICENSE
+Makefile
+lefthook.yml
+.golangci.yml
+.editorconfig
+.env
+docker-compose*.yml
+
+# Frontend build artifacts
+web/node_modules/
+web/dist/
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# OS
+.DS_Store
+Thumbs.db
