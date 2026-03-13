@@ -27,6 +27,7 @@ export default defineConfig({
     },
   },
   build: {
+    target: 'esnext',
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
@@ -38,7 +39,9 @@ export default defineConfig({
             '@codemirror/commands',
             '@codemirror/lang-markdown',
             '@codemirror/language',
+            '@codemirror/language-data',
             '@codemirror/search',
+            '@codemirror/autocomplete',
           ],
           highlight: ['highlight.js'],
           marked: ['marked', 'marked-highlight', 'marked-footnote'],

@@ -1,12 +1,19 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"runtime"
+	"strconv"
+	"sync"
 	"time"
 )
+
+var jsonBufPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
 
 var startTime = time.Now()
 
@@ -35,12 +42,22 @@ func handleHealth(version string) http.HandlerFunc {
 // ---- JSON helpers ----
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	enc := json.NewEncoder(w)
+	buf := jsonBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer jsonBufPool.Put(buf)
+
+	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(v); err != nil {
 		slog.Error("writeJSON: encode failed", "error", err)
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	w.WriteHeader(status)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		slog.Warn("writeJSON: write failed", "error", err)
 	}
 }
 
