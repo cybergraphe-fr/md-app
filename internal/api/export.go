@@ -163,7 +163,11 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			slog.Warn("cleanup tmp dir failed", "path", tmpDir, "error", err)
+		}
+	}()
 
 	inputFile := filepath.Join(tmpDir, "input.md")
 	outputFile := filepath.Join(tmpDir, "output"+fmtInfo.ext)
@@ -326,7 +330,11 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			slog.Warn("cleanup tmp dir failed", "path", tmpDir, "error", err)
+		}
+	}()
 
 	inputFile := filepath.Join(tmpDir, "input.md")
 	outputFile := filepath.Join(tmpDir, "output"+fmtInfo.ext)

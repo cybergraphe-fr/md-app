@@ -2,9 +2,7 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -169,15 +167,4 @@ func decodeJSON(r *http.Request, v any) error {
 
 func marshalJSON(v any) ([]byte, error) {
 	return json.Marshal(v)
-}
-
-// ---- helper: write raw ----
-
-func writeRaw(w http.ResponseWriter, status int, contentType string, body []byte) {
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(status)
-	if _, err := w.Write(body); err != nil {
-		slog.Warn("write response failed", "error", err)
-	}
 }
