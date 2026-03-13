@@ -43,7 +43,7 @@ func main() {
 	}
 
 	// Ensure storage directory exists
-	if err := os.MkdirAll(cfg.StoragePath, 0755); err != nil {
+	if err := os.MkdirAll(cfg.StoragePath, 0750); err != nil {
 		slog.Error("failed to create storage directory", "path", cfg.StoragePath, "error", err)
 		os.Exit(1)
 	}
@@ -63,14 +63,15 @@ func main() {
 	fileStore := storage.New(cfg.StoragePath)
 
 	// HTTP router
-	router := api.NewRouter(cfg, fileStore, redisClient, Version)
+	server := api.NewRouter(cfg, fileStore, redisClient, Version)
 
 	srv := &http.Server{
-		Addr:         cfg.HTTPAddr,
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 120 * time.Second, // longer for PDF export
-		IdleTimeout:  120 * time.Second,
+		Addr:              cfg.HTTPAddr,
+		Handler:           server.Handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      120 * time.Second, // longer for PDF export
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Graceful shutdown
@@ -94,6 +95,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		slog.Error("shutdown error", "error", err)
 	}
+	server.Shutdown()
 
 	if redisClient != nil {
 		if err := redisClient.Close(); err != nil {

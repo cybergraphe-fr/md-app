@@ -105,10 +105,10 @@
     width: 240px;
     max-height: 460px;
     overflow-y: auto;
-    background: #18181b;
+    background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--shadow-lg);
     animation: dropdown-in 0.15s ease-out;
   }
 
@@ -163,11 +163,11 @@
     transition: background 0.1s;
   }
   .font-option:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-hover);
   }
   .font-option.active {
-    background: rgba(139, 92, 246, 0.22);
-    color: #c4b5fd;
+    background: var(--accent-light);
+    color: var(--accent-hover);
     font-weight: 600;
     border-left: 3px solid var(--accent);
     padding-left: calc(0.75rem - 3px);

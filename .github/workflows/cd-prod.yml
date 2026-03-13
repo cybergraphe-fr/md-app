@@ -4,6 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".github/dependabot.yml"
+      - ".editorconfig"
+      - ".markdownlint.json"
+      - ".markdownlintignore"
 
 permissions:
   contents: read
@@ -13,19 +20,19 @@ jobs:
     name: Validate Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
-          go-version: "stable"
+          go-version: "1.26.x"
           cache-dependency-path: go.sum
 
       - name: Go test
         run: go test ./...
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -61,15 +68,17 @@ jobs:
 
       - name: Deploy via SSH
         if: steps.check_secrets.outputs.skip != 'true'
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
+        env:
+          APP_DIR: ${{ secrets.MD_PROD_APP_DIR || '/srv/apps/md' }}
         with:
           host: ${{ secrets.MD_PROD_SSH_HOST }}
           username: ${{ secrets.MD_PROD_SSH_USER }}
           key: ${{ secrets.MD_PROD_SSH_KEY }}
           port: ${{ secrets.MD_PROD_SSH_PORT || '22' }}
+          envs: APP_DIR
           script: |
             set -e
-            APP_DIR="${{ secrets.MD_PROD_APP_DIR || '/srv/apps/md' }}"
             cd "$APP_DIR"
             git pull --ff-only origin main
             docker compose -f docker-compose.nas.yml up -d --build --remove-orphans

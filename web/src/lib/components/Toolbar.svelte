@@ -15,6 +15,8 @@
     type FormatActionKind,
   } from '$lib/stores/files';
   import FontPicker from './FontPicker.svelte';
+
+  let showShortcuts = $state(false);
   import {
     Save,
     FilePlus,
@@ -103,6 +105,9 @@
       handleSave();
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // Don't intercept when CodeMirror editor is focused (it handles Ctrl+K for link insertion)
+      const active = document.activeElement;
+      if (active && active.closest('.cm-editor')) return;
       e.preventDefault();
       onSearch();
     }
@@ -128,7 +133,8 @@
     <input
       class="doc-title"
       type="text"
-      bind:value={$activeName}
+      value={$activeName}
+      oninput={(e) => { activeName.set((e.target as HTMLInputElement).value); isDirty.set(true); }}
       placeholder="Untitled document"
       spellcheck="false"
     />
@@ -207,13 +213,25 @@
       {/if}
     </button>
 
-    <button
-      class="btn btn-icon"
-      title="Keyboard shortcuts"
-      onclick={() => alert('Ctrl+S: Save\nCtrl+B: Bold\nCtrl+I: Italic\nCtrl+K: Link\nCtrl+Shift+P: Toggle preview')}
-    >
-      <Keyboard size={15} />
-    </button>
+    <div class="relative">
+      <button
+        class="btn btn-icon"
+        title="Keyboard shortcuts"
+        onclick={() => showShortcuts = !showShortcuts}
+        onblur={() => showShortcuts = false}
+      >
+        <Keyboard size={15} />
+      </button>
+      {#if showShortcuts}
+        <div class="shortcuts-popover">
+          <div><kbd>Ctrl+S</kbd> Save</div>
+          <div><kbd>Ctrl+B</kbd> Bold</div>
+          <div><kbd>Ctrl+I</kbd> Italic</div>
+          <div><kbd>Ctrl+K</kbd> Link</div>
+          <div><kbd>Ctrl+Shift+P</kbd> Toggle preview</div>
+        </div>
+      {/if}
+    </div>
   </div>
 </header>
 
@@ -364,6 +382,35 @@
     transition: color 0.15s;
   }
   .sidebar-toggle:hover { color: var(--accent); }
+
+  .shortcuts-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 100;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 0.5rem 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .shortcuts-popover kbd {
+    display: inline-block;
+    background: var(--bg-app);
+    border: 1px solid var(--border-subtle);
+    border-radius: 3px;
+    padding: 0.05rem 0.35rem;
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    margin-right: 0.4rem;
+  }
 
   @media (max-width: 1024px) {
     .toolbar {

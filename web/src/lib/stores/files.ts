@@ -139,7 +139,11 @@ export async function createFile(name = 'untitled', content = ''): Promise<void>
   }
 }
 
+const deletingIds = new Set<string>();
+
 export async function deleteFile(id: string): Promise<void> {
+  if (deletingIds.has(id)) return;
+  deletingIds.add(id);
   try {
     await api.delete(id);
     files.update((fs) => fs.filter((f) => f.id !== id));
@@ -151,6 +155,8 @@ export async function deleteFile(id: string): Promise<void> {
     }
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to delete file');
+  } finally {
+    deletingIds.delete(id);
   }
 }
 
@@ -158,8 +164,10 @@ export async function importFile(file: File): Promise<void> {
   isLoading.set(true);
   error.set(null);
   try {
-    const fwc = await api.importFile(file);
-    files.update((fs) => [fwc, ...fs]);
+    const meta = await api.importFile(file);
+    files.update((fs) => [meta, ...fs]);
+    // Fetch full content since import returns metadata only
+    const fwc = await api.get(meta.id);
     activeFileId.set(fwc.id);
     activeName.set(fwc.name);
     activeContent.set(fwc.content);

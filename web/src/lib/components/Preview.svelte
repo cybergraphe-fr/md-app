@@ -3,8 +3,62 @@
   import { Marked } from 'marked';
   import { markedHighlight } from 'marked-highlight';
   import markedFootnote from 'marked-footnote';
-  import hljs from 'highlight.js';
+  import hljs from 'highlight.js/lib/core';
+  import javascript from 'highlight.js/lib/languages/javascript';
+  import typescript from 'highlight.js/lib/languages/typescript';
+  import python from 'highlight.js/lib/languages/python';
+  import bash from 'highlight.js/lib/languages/bash';
+  import json from 'highlight.js/lib/languages/json';
+  import css from 'highlight.js/lib/languages/css';
+  import xml from 'highlight.js/lib/languages/xml';
+  import yaml from 'highlight.js/lib/languages/yaml';
+  import sql from 'highlight.js/lib/languages/sql';
+  import go from 'highlight.js/lib/languages/go';
+  import rust from 'highlight.js/lib/languages/rust';
+  import java from 'highlight.js/lib/languages/java';
+  import csharp from 'highlight.js/lib/languages/csharp';
+  import cpp from 'highlight.js/lib/languages/cpp';
+  import php from 'highlight.js/lib/languages/php';
+  import ruby from 'highlight.js/lib/languages/ruby';
+  import markdown from 'highlight.js/lib/languages/markdown';
+  import dockerfile from 'highlight.js/lib/languages/dockerfile';
+  import diff from 'highlight.js/lib/languages/diff';
+  import ini from 'highlight.js/lib/languages/ini';
+
+  hljs.registerLanguage('javascript', javascript);
+  hljs.registerLanguage('js', javascript);
+  hljs.registerLanguage('typescript', typescript);
+  hljs.registerLanguage('ts', typescript);
+  hljs.registerLanguage('python', python);
+  hljs.registerLanguage('bash', bash);
+  hljs.registerLanguage('sh', bash);
+  hljs.registerLanguage('shell', bash);
+  hljs.registerLanguage('json', json);
+  hljs.registerLanguage('css', css);
+  hljs.registerLanguage('html', xml);
+  hljs.registerLanguage('xml', xml);
+  hljs.registerLanguage('yaml', yaml);
+  hljs.registerLanguage('yml', yaml);
+  hljs.registerLanguage('sql', sql);
+  hljs.registerLanguage('go', go);
+  hljs.registerLanguage('rust', rust);
+  hljs.registerLanguage('java', java);
+  hljs.registerLanguage('csharp', csharp);
+  hljs.registerLanguage('cs', csharp);
+  hljs.registerLanguage('cpp', cpp);
+  hljs.registerLanguage('c', cpp);
+  hljs.registerLanguage('php', php);
+  hljs.registerLanguage('ruby', ruby);
+  hljs.registerLanguage('rb', ruby);
+  hljs.registerLanguage('markdown', markdown);
+  hljs.registerLanguage('md', markdown);
+  hljs.registerLanguage('dockerfile', dockerfile);
+  hljs.registerLanguage('docker', dockerfile);
+  hljs.registerLanguage('diff', diff);
+  hljs.registerLanguage('ini', ini);
+  hljs.registerLanguage('toml', ini);
   import { activeContent } from '$lib/stores/files';
+  import DOMPurify from 'dompurify';
 
   // ── Mermaid (lazy‑loaded) ──
   let mermaidReady = false;
@@ -14,7 +68,7 @@
     if (mermaidModule) return;
     const m = await import('mermaid');
     mermaidModule = m.default;
-    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
     mermaidReady = true;
   }
 
@@ -54,22 +108,41 @@
       },
       link(this: any, { href, title, tokens }: { href: string; title?: string | null; tokens: any[] }): string {
         const text = this.parser.parseInline(tokens);
-        const external = href?.startsWith('http') && !href.startsWith(window.location.origin);
+        const safeHref = /^\s*javascript\s*:/i.test(href ?? '') ? '' : href ?? '';
+        const escapedHref = safeHref.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        const external = safeHref.startsWith('http') && !safeHref.startsWith(window.location.origin);
         const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : '';
-        const t = title ? ` title="${title}"` : '';
-        return `<a href="${href}"${t}${attrs}>${text}</a>`;
+        const t = title ? ` title="${title.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"` : '';
+        return `<a href="${escapedHref}"${t}${attrs}>${text}</a>`;
       },
       image({ href, title, text }: { href: string; title?: string | null; text: string }): string {
-        const t = title ? ` title="${title}"` : '';
-        return `<img src="${href}" alt="${text}"${t} loading="lazy">`;
+        const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const t = title ? ` title="${escAttr(title)}"` : '';
+        return `<img src="${escAttr(href ?? '')}" alt="${escAttr(text)}"${t} loading="lazy">`;
       },
       code({ text, lang }: { text: string; lang?: string }): string {
         if (lang === 'mermaid') {
           return `<pre class="mermaid-block" data-mermaid>${text}</pre>`;
         }
+        // text is already highlighted by markedHighlight — just wrap it
         const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-        const highlighted = hljs.highlight(text, { language }).value;
-        return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+        return `<pre><code class="hljs language-${language}">${text}</code></pre>`;
+      },
+      table(this: any, { header, rows }: { header: any[]; rows: any[][] }): string {
+        const headerCells = header.map((h: any) => {
+          const text = this.parser.parseInline(h.tokens);
+          const align = h.align ? ` style="text-align:${h.align}"` : '';
+          return `<th${align}>${text}</th>`;
+        }).join('');
+        const bodyRows = rows.map((row: any[]) => {
+          const cells = row.map((cell: any) => {
+            const text = this.parser.parseInline(cell.tokens);
+            const align = cell.align ? ` style="text-align:${cell.align}"` : '';
+            return `<td${align}>${text}</td>`;
+          }).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('\n');
+        return `<div class="table-wrapper"><table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table></div>`;
       },
     },
   });
@@ -215,30 +288,39 @@
   let renderedHtml = $state('');
   let container = $state<HTMLElement | undefined>(undefined);
   let mermaidCounter = 0;
+  let renderTimer: ReturnType<typeof setTimeout>;
 
-  // Re‑render on content change
+  // Re‑render on content change (debounced to avoid thrashing during fast typing)
   $effect(() => {
     const content = $activeContent;
-    // Pre-load KaTeX if content has $ signs
+    // Pre-load KaTeX/Mermaid eagerly so they're ready when render fires
     if (content.includes('$')) ensureKaTeX();
-    // Pre-load Mermaid if content has mermaid code blocks
     if (content.includes('```mermaid')) ensureMermaid();
 
-    try {
-      // Replace page break markers before parsing
-      const preprocessed = normalizeMarkdown(content).replace(pageBreakRe, pageBreakHtml);
-      let html = marked.parse(preprocessed) as string;
-      html = processKaTeX(html);
-      renderedHtml = html;
-    } catch {
-      renderedHtml = `<p class="render-error">Render error</p>`;
-    }
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(() => {
+      try {
+        const preprocessed = normalizeMarkdown(content).replace(pageBreakRe, pageBreakHtml);
+        let html = marked.parse(preprocessed) as string;
+        html = processKaTeX(html);
+        renderedHtml = DOMPurify.sanitize(html, {
+          ADD_TAGS: ['math', 'semantics', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'mfrac', 'munder', 'mover', 'munderover', 'msqrt', 'mroot', 'mtable', 'mtr', 'mtd', 'mtext', 'mspace', 'annotation'],
+          ADD_ATTR: ['xmlns', 'display', 'mathvariant', 'encoding', 'data-mermaid', 'data-copy', 'data-rendered'],
+        });
+      } catch {
+        renderedHtml = `<p class="render-error">Render error</p>`;
+      }
+    }, 150);
+
+    return () => clearTimeout(renderTimer);
   });
 
   // Post-render: copy buttons, emojis, mermaid diagrams
   $effect(() => {
     if (!container || !renderedHtml) return;
-    setTimeout(async () => {
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      if (cancelled) return;
       // Copy buttons on code blocks
       container?.querySelectorAll('pre:not([data-copy]):not([data-mermaid])').forEach((pre) => {
         pre.setAttribute('data-copy', '1');
@@ -255,6 +337,9 @@
               btn.textContent = 'Copy';
               btn.classList.remove('copied');
             }, 1800);
+          }).catch(() => {
+            btn.textContent = 'Failed';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
           });
         });
         pre.appendChild(btn);
@@ -281,14 +366,16 @@
             const { svg } = await mermaidModule.render(`mermaid-${mermaidCounter}`, src);
             const div = document.createElement('div');
             div.className = 'mermaid-diagram';
-            div.innerHTML = svg;
+            div.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
             block.replaceWith(div);
-          } catch {
+          } catch (err) {
             block.classList.add('mermaid-error');
+            console.warn('Mermaid render failed:', err);
           }
         }
       }
     }, 0);
+    return () => { cancelled = true; clearTimeout(timeoutId); };
   });
 
   onMount(() => {

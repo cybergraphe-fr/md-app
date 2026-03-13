@@ -1,0 +1,63 @@
+# Data & runtime
+data/
+redis_data/
+certs/
+certs-staging/
+logs/
+secrets/
+
+# Git & IDE
+.git/
+.github/
+.claude/
+.sessions/
+.vscode/
+.idea/
+
+# Documentation (pandoc/ is needed for export)
+*.md
+!pandoc/
+!pandoc/**
+
+# Project meta
+LICENSE
+Makefile
+lefthook.yml
+.golangci.yml
+.editorconfig
+.markdownlint.json
+.markdownlintignore
+.gitattributes
+.gitignore
+.env*
+docker-compose*.yml
+
+# Tests (not needed in image)
+tests/
+
+# Frontend build artifacts (rebuilt in Docker)
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Go build artifacts
+/build/
+*.test
+*.out
+vendor/
+coverage.txt
+coverage.html
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.tar
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+*.pdf

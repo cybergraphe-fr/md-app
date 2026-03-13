@@ -2,12 +2,13 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/yuin/goldmark"
@@ -19,6 +20,7 @@ import (
 	"go.abhg.dev/goldmark/frontmatter"
 
 	"md/internal/cache"
+	"md/internal/config"
 	"md/internal/storage"
 )
 
@@ -46,11 +48,18 @@ var md = goldmark.New(
 	),
 )
 
+// bufPool reuses bytes.Buffer instances to reduce allocations during rendering.
+var bufPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
+
 // renderMarkdown converts markdown content to an HTML string.
 func renderMarkdown(content string) (string, error) {
 	content = preprocessMarkdown(content)
-	var buf bytes.Buffer
-	if err := md.Convert([]byte(content), &buf); err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	if err := md.Convert([]byte(content), buf); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -61,10 +70,11 @@ func renderMarkdown(content string) (string, error) {
 type filesHandler struct {
 	store *storage.Storage
 	cache *cache.Client
+	cfg   *config.Config
 }
 
-func newFilesHandler(store *storage.Storage, c *cache.Client) *filesHandler {
-	return &filesHandler{store: store, cache: c}
+func newFilesHandler(store *storage.Storage, c *cache.Client, cfg *config.Config) *filesHandler {
+	return &filesHandler{store: store, cache: c, cfg: cfg}
 }
 
 // GET /api/files
@@ -130,7 +140,9 @@ func (h *filesHandler) update(w http.ResponseWriter, r *http.Request) {
 
 	// Auto-version: save current content before overwriting.
 	if current, err := h.store.GetContent(id); err == nil {
-		_, _ = h.store.SaveVersion(id, current.Content, "auto-save")
+		if _, err := h.store.SaveVersion(id, current.Content, "auto-save"); err != nil {
+			slog.Warn("auto-version failed", "file_id", id, "error", err)
+		}
 	}
 
 	f, err := h.store.Update(id, body.Name, body.Content)
@@ -144,7 +156,9 @@ func (h *filesHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	// Invalidate cache
 	if h.cache != nil {
-		_ = h.cache.Delete(r.Context(), "render:"+id)
+		if err := h.cache.Delete(r.Context(), "render:"+id); err != nil {
+			slog.Warn("cache invalidation failed", "key", "render:"+id, "error", err)
+		}
 	}
 	writeJSON(w, http.StatusOK, f)
 }
@@ -161,7 +175,9 @@ func (h *filesHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.cache != nil {
-		_ = h.cache.Delete(r.Context(), "render:"+id)
+		if err := h.cache.Delete(r.Context(), "render:"+id); err != nil {
+			slog.Warn("cache invalidation failed", "key", "render:"+id, "error", err)
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -202,7 +218,9 @@ func (h *filesHandler) render(w http.ResponseWriter, r *http.Request) {
 	result := map[string]string{"html": rendered, "name": fwc.Name}
 	if h.cache != nil {
 		if b, err := marshalJSON(result); err == nil {
-			_ = h.cache.Set(context.Background(), cacheKey, string(b))
+			if err := h.cache.Set(r.Context(), cacheKey, string(b)); err != nil {
+				slog.Warn("cache set failed", "key", cacheKey, "error", err)
+			}
 		}
 	}
 
@@ -229,7 +247,7 @@ func (h *filesHandler) renderRaw(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/files/import  (multipart form upload)
 func (h *filesHandler) importFile(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(50 << 20); err != nil {
+	if err := r.ParseMultipartForm(h.cfg.MaxFileSizeMB << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "bad multipart form")
 		return
 	}
@@ -240,6 +258,15 @@ func (h *filesHandler) importFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// Validate file type: only text content or known extensions.
+	ct := header.Header.Get("Content-Type")
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowedExts := map[string]bool{".md": true, ".txt": true, ".html": true, ".markdown": true, ".htm": true}
+	if !allowedExts[ext] && !strings.HasPrefix(ct, "text/") {
+		writeError(w, http.StatusBadRequest, "only text/markdown files are allowed")
+		return
+	}
 
 	name := strings.TrimSuffix(header.Filename, ".md")
 	name = strings.TrimSuffix(name, ".txt")
@@ -328,5 +355,7 @@ func (h *filesHandler) exportHTML(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.html"`, fwc.Slug))
-	w.Write(buf.Bytes())
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		slog.Warn("write response failed", "error", err)
+	}
 }

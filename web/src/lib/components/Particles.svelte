@@ -111,7 +111,7 @@
     init();
     draw();
     window.addEventListener('resize', handleResize);
-    window.addEventListener('mousemove', handleMouse);
+    window.addEventListener('mousemove', handleMouse, { passive: true });
   });
 
   onDestroy(() => {

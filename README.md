@@ -2,8 +2,10 @@
 
 > **Open-source markdown editor & file manager** — beautiful, fast, self-hosted.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev)
+[![CI](https://github.com/cybergraphe-fr/md-app/actions/workflows/ci.yml/badge.svg)](https://github.com/cybergraphe-fr/md-app/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/cybergraphe-fr/md-app/actions/workflows/codeql.yml/badge.svg)](https://github.com/cybergraphe-fr/md-app/actions/workflows/codeql.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
 [![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte)](https://svelte.dev)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](docker-compose.nas.yml)
 
@@ -13,7 +15,7 @@
 
 **MD** is a self-hosted webapp for writing, managing and exporting Markdown documents. It combines a split-pane editor with a live, typographically polished preview, and supports exporting to a wide range of formats — all from a clean, minimal interface designed for long-form writing in 2026.
 
-It is distributed under the **MIT licence** and designed to run on your own infrastructure behind your existing security stack (Traefik, CrowdSec, Redis, etc.).
+It is distributed under the **GNU GPL-3.0 licence** and designed to run on your own infrastructure behind your existing security stack (Traefik, CrowdSec, Redis, etc.).
 
 ---
 
@@ -402,7 +404,7 @@ Please run `go vet ./...` and `cd web && npm run typecheck` before submitting.
 
 ## Licence
 
-MIT © 2026 [MD Contributors](https://github.com/md-app/md/graphs/contributors)
+GPL-3.0 © 2026 [MD Contributors](https://github.com/cybergraphe-fr/md-app/graphs/contributors)
 
 ---
 

@@ -82,7 +82,11 @@ func (s *Storage) Search(query string) ([]SearchResult, error) {
 		}
 
 		// Content match.
-		content, err := os.ReadFile(s.contentPath(f.ID))
+		cp, cpErr := s.contentPath(f.ID)
+		if cpErr != nil {
+			continue
+		}
+		content, err := os.ReadFile(cp)
 		if err != nil {
 			continue
 		}

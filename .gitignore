@@ -6,9 +6,8 @@
 
 # ── Environment & secrets (CRITICAL) ────────────────────────
 # .env contains passwords, API keys, domains — never commit!
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 # Docker secrets directory (redis_password, api_key, etc.)
 secrets/
 
@@ -61,7 +60,13 @@ certs/
 # Let's Encrypt staging certs
 certs-staging/
 
+# ── Claude Code (local config) ─────────────────────────────
+.claude/
+CLAUDE.md
+
+# ── Work sessions (local tracking) ────────────────────────
+.sessions/
+
 # ── Misc ─────────────────────────────────────────────────────
-# .sessions/  # optional: uncomment to ignore work session tracking
 # exported PDFs (generated, not source)
 *.pdf

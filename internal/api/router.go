@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -17,14 +16,32 @@ import (
 	"md/internal/webhooks"
 )
 
+// Server wraps the HTTP handler and manages component lifecycles.
+type Server struct {
+	Handler    http.Handler
+	authH      *authHandler
+	webhookMgr *webhooks.Manager
+}
+
+// Shutdown gracefully stops background goroutines.
+func (s *Server) Shutdown() {
+	if s.authH != nil {
+		s.authH.Shutdown()
+	}
+	if s.webhookMgr != nil {
+		s.webhookMgr.Shutdown()
+	}
+}
+
 // NewRouter assembles and returns the full HTTP router.
-func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, version string) http.Handler {
+func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, version string) *Server {
 	r := chi.NewRouter()
 
 	// Global middleware
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(middleware.Compress(5, "application/json", "text/html", "text/plain", "text/css", "application/javascript"))
 	r.Use(loggingMiddleware)
 	r.Use(securityHeaders)
 	r.Use(cors.Handler(cors.Options{
@@ -44,13 +61,20 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 	r.Get("/health", handleHealth(version))
 	r.Get("/ready", handleHealth(version)) // k8s readiness compat
 
-	// Static frontend assets (served from embedded filesystem or /app/web)
-	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("/app/web/assets"))))
-	r.Handle("/fonts/*", http.StripPrefix("/fonts/", http.FileServer(http.Dir("/app/web/fonts"))))
+	// Static frontend assets with long-term caching (Vite hashes filenames)
+	staticCache := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			next.ServeHTTP(w, r)
+		})
+	}
+	r.With(staticCache).Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("/app/web/assets"))))
+	r.With(staticCache).Handle("/fonts/*", http.StripPrefix("/fonts/", http.FileServer(http.Dir("/app/web/fonts"))))
 
 	// Auth endpoints (always public, handled before OIDC middleware)
+	var ah *authHandler
 	if oidcCfg != nil {
-		ah := newAuthHandler(oidcCfg)
+		ah = newAuthHandler(oidcCfg)
 		r.Route("/api/auth", func(r chi.Router) {
 			r.Get("/login", ah.login)
 			r.Get("/callback", ah.callback)
@@ -69,7 +93,7 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 	r.Group(func(r chi.Router) {
 		r.Use(apiKeyMiddleware(cfg))
 
-		fh := newFilesHandler(store, c)
+		fh := newFilesHandler(store, c, cfg)
 		eh := newExportHandler(store, cfg)
 		th := newTemplatesHandler()
 		sh := newSearchHandler(store)
@@ -131,28 +155,20 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 		http.ServeFile(w, r, "/app/web/index.html")
 	})
 
-	return r
+	return &Server{
+		Handler:    r,
+		authH:      ah,
+		webhookMgr: webhookMgr,
+	}
 }
 
 // ---- helper: JSON decode ----
 
 func decodeJSON(r *http.Request, v any) error {
-	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(body, v)
+	dec := json.NewDecoder(io.LimitReader(r.Body, 10<<20))
+	return dec.Decode(v)
 }
 
 func marshalJSON(v any) ([]byte, error) {
 	return json.Marshal(v)
-}
-
-// ---- helper: write raw ----
-
-func writeRaw(w http.ResponseWriter, status int, contentType string, body []byte) {
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(status)
-	w.Write(body)
 }
