@@ -67,6 +67,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true            # prevent privilege escalation
+    cap_drop:
+      - ALL
 
     # Inject secret files into the container at /run/secrets/
     secrets:
@@ -133,6 +135,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
 
     # Redis needs the password to start with --requirepass
     secrets:

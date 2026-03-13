@@ -20,17 +20,17 @@ jobs:
     name: Validate Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
-          go-version: "stable"
+          go-version: "1.25.x"
           cache-dependency-path: go.sum
 
       - name: Go test
         run: go test ./...
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "24"
           cache: npm
@@ -68,7 +68,7 @@ jobs:
 
       - name: Deploy via SSH
         if: steps.check_secrets.outputs.skip != 'true'
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
           APP_DIR: ${{ secrets.MD_PROD_APP_DIR || '/srv/apps/md' }}
         with:

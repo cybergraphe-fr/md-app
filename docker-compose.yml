@@ -28,6 +28,10 @@ services:
         BUILD_DATE: ${BUILD_DATE:-unknown}
     container_name: md-app
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
     environment:
       # ── Server ──

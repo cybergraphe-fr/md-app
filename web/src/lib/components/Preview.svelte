@@ -118,7 +118,7 @@
       image({ href, title, text }: { href: string; title?: string | null; text: string }): string {
         const escAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const t = title ? ` title="${escAttr(title)}"` : '';
-        return `<img src="${href}" alt="${escAttr(text)}"${t} loading="lazy">`;
+        return `<img src="${escAttr(href ?? '')}" alt="${escAttr(text)}"${t} loading="lazy">`;
       },
       code({ text, lang }: { text: string; lang?: string }): string {
         if (lang === 'mermaid') {

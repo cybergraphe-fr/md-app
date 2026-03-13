@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -18,23 +17,17 @@ var jsonBufPool = sync.Pool{
 var startTime = time.Now()
 
 type healthResponse struct {
-	Status    string `json:"status"`
-	Version   string `json:"version"`
-	Uptime    string `json:"uptime"`
-	GoVersion string `json:"go_version"`
-	OS        string `json:"os"`
-	Arch      string `json:"arch"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  string `json:"uptime"`
 }
 
 func handleHealth(version string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, healthResponse{
-			Status:    "ok",
-			Version:   version,
-			Uptime:    time.Since(startTime).Round(time.Second).String(),
-			GoVersion: runtime.Version(),
-			OS:        runtime.GOOS,
-			Arch:      runtime.GOARCH,
+			Status:  "ok",
+			Version: version,
+			Uptime:  time.Since(startTime).Round(time.Second).String(),
 		})
 	}
 }

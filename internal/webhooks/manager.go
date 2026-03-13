@@ -75,6 +75,9 @@ func New(configPath string) *Manager {
 		configPath: configPath,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				DialContext: ssrfSafeDialer,
+			},
 		},
 		ctx:    ctx,
 		cancel: cancel,
@@ -130,7 +133,7 @@ func (m *Manager) save() error {
 		return err
 	}
 	tmp := m.configPath + ".tmp"
-	if err := os.WriteFile(tmp, data, 0644); err != nil {
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, m.configPath)
@@ -199,6 +202,28 @@ func mustParseCIDR(s string) *net.IPNet {
 		panic(err)
 	}
 	return n
+}
+
+// ssrfSafeDialer prevents DNS rebinding attacks by checking the resolved IP
+// at connection time, not just at webhook registration time.
+func ssrfSafeDialer(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("DNS resolution failed: %w", err)
+	}
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip != nil && isPrivateIP(ip) {
+			return nil, fmt.Errorf("connection to private IP %s blocked", ipStr)
+		}
+	}
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	// Connect to the first resolved IP to prevent rebinding between resolve and dial
+	return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0], port))
 }
 
 // Create registers a new webhook endpoint.

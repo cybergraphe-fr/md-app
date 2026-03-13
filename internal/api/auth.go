@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -408,11 +409,14 @@ func hmacSign(data, key string) string {
 
 // ---- auth handler ----
 
+const maxPendingStates = 10000
+
 // authHandler provides OIDC login/callback/me/logout endpoints.
 type authHandler struct {
-	provider *oidcProvider
-	states   sync.Map // CSRF state -> expiry
-	done     chan struct{}
+	provider   *oidcProvider
+	states     sync.Map  // CSRF state -> expiry
+	stateCount int64     // approximate count of pending states
+	done       chan struct{}
 }
 
 func newAuthHandler(cfg *OIDCConfig) *authHandler {
@@ -440,7 +444,9 @@ func (h *authHandler) cleanupStates() {
 			now := time.Now()
 			h.states.Range(func(key, value any) bool {
 				if exp, ok := value.(time.Time); ok && now.After(exp) {
-					h.states.Delete(key)
+					if _, loaded := h.states.LoadAndDelete(key); loaded {
+						atomic.AddInt64(&h.stateCount, -1)
+					}
 				}
 				return true
 			})
@@ -457,8 +463,14 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if atomic.LoadInt64(&h.stateCount) >= maxPendingStates {
+		writeError(w, http.StatusTooManyRequests, "too many pending login requests")
+		return
+	}
+
 	state := uuid.New().String()
 	h.states.Store(state, time.Now().Add(10*time.Minute))
+	atomic.AddInt64(&h.stateCount, 1)
 
 	params := url.Values{
 		"response_type": {"code"},
@@ -484,6 +496,9 @@ func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 
 	// Validate CSRF state.
 	val, ok := h.states.LoadAndDelete(state)
+	if ok {
+		atomic.AddInt64(&h.stateCount, -1)
+	}
 	if !ok {
 		writeError(w, http.StatusBadRequest, "invalid state parameter")
 		return
