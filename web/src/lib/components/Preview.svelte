@@ -128,6 +128,22 @@
         const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
         return `<pre><code class="hljs language-${language}">${text}</code></pre>`;
       },
+      table(this: any, { header, rows }: { header: any[]; rows: any[][] }): string {
+        const headerCells = header.map((h: any) => {
+          const text = this.parser.parseInline(h.tokens);
+          const align = h.align ? ` style="text-align:${h.align}"` : '';
+          return `<th${align}>${text}</th>`;
+        }).join('');
+        const bodyRows = rows.map((row: any[]) => {
+          const cells = row.map((cell: any) => {
+            const text = this.parser.parseInline(cell.tokens);
+            const align = cell.align ? ` style="text-align:${cell.align}"` : '';
+            return `<td${align}>${text}</td>`;
+          }).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('\n');
+        return `<div class="table-wrapper"><table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table></div>`;
+      },
     },
   });
 

@@ -6,7 +6,8 @@
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
   import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
   import { languages } from '@codemirror/language-data';
-  import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, foldGutter } from '@codemirror/language';
+  import { syntaxHighlighting, HighlightStyle, indentOnInput, foldGutter } from '@codemirror/language';
+  import { tags as t } from '@lezer/highlight';
   import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
   import {
     activeContent,
@@ -16,9 +17,48 @@
     type FormatActionKind,
   } from '$lib/stores/files';
 
+  const darkHighlightStyle = HighlightStyle.define([
+    { tag: t.keyword, color: '#c678dd' },
+    { tag: [t.name, t.deleted, t.character, t.macroName], color: '#e06c75' },
+    { tag: [t.function(t.variableName), t.labelName], color: '#61afef' },
+    { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: '#d19a66' },
+    { tag: [t.definition(t.name), t.separator], color: '#abb2bf' },
+    { tag: [t.typeName, t.className, t.number, t.changed, t.annotation, t.modifier, t.self, t.namespace], color: '#e5c07b' },
+    { tag: [t.operator, t.operatorKeyword, t.url, t.escape, t.regexp, t.link, t.special(t.string)], color: '#56b6c2' },
+    { tag: [t.meta, t.comment], color: '#7f848e' },
+    { tag: t.strong, fontWeight: 'bold', color: '#e5c07b' },
+    { tag: t.emphasis, fontStyle: 'italic', color: '#c678dd' },
+    { tag: t.strikethrough, textDecoration: 'line-through' },
+    { tag: t.link, color: '#61afef', textDecoration: 'underline' },
+    { tag: t.heading, fontWeight: 'bold', color: '#e06c75' },
+    { tag: [t.atom, t.bool, t.special(t.variableName)], color: '#d19a66' },
+    { tag: [t.processingInstruction, t.string, t.inserted], color: '#98c379' },
+    { tag: t.invalid, color: '#ffffff', backgroundColor: '#e06c75' },
+  ]);
+
+  const lightHighlightStyle = HighlightStyle.define([
+    { tag: t.keyword, color: '#a626a4' },
+    { tag: [t.name, t.deleted, t.character, t.macroName], color: '#e45649' },
+    { tag: [t.function(t.variableName), t.labelName], color: '#4078f2' },
+    { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: '#986801' },
+    { tag: [t.definition(t.name), t.separator], color: '#383a42' },
+    { tag: [t.typeName, t.className, t.number, t.changed, t.annotation, t.modifier, t.self, t.namespace], color: '#c18401' },
+    { tag: [t.operator, t.operatorKeyword, t.url, t.escape, t.regexp, t.link, t.special(t.string)], color: '#0184bc' },
+    { tag: [t.meta, t.comment], color: '#a0a1a7' },
+    { tag: t.strong, fontWeight: 'bold', color: '#c18401' },
+    { tag: t.emphasis, fontStyle: 'italic', color: '#a626a4' },
+    { tag: t.strikethrough, textDecoration: 'line-through' },
+    { tag: t.link, color: '#4078f2', textDecoration: 'underline' },
+    { tag: t.heading, fontWeight: 'bold', color: '#e45649' },
+    { tag: [t.atom, t.bool, t.special(t.variableName)], color: '#986801' },
+    { tag: [t.processingInstruction, t.string, t.inserted], color: '#50a14f' },
+    { tag: t.invalid, color: '#ffffff', backgroundColor: '#e45649' },
+  ]);
+
   let container: HTMLDivElement;
   let view: EditorView | undefined;
   const themeCompartment = new Compartment();
+  const highlightCompartment = new Compartment();
 
   function buildTheme(dark: boolean): Extension {
     return EditorView.theme(
@@ -102,7 +142,9 @@
       dropCursor(),
       history(),
       indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      highlightCompartment.of(
+        syntaxHighlighting(dark ? darkHighlightStyle : lightHighlightStyle, { fallback: true })
+      ),
       markdown({
         base: markdownLanguage,
         codeLanguages: languages,
@@ -336,7 +378,12 @@
   function recreateExtensions(dark: boolean): void {
     if (!view) return;
     view.dispatch({
-      effects: themeCompartment.reconfigure(buildTheme(dark)),
+      effects: [
+        themeCompartment.reconfigure(buildTheme(dark)),
+        highlightCompartment.reconfigure(
+          syntaxHighlighting(dark ? darkHighlightStyle : lightHighlightStyle, { fallback: true })
+        ),
+      ],
     });
   }
 
