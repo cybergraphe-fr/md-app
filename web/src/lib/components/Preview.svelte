@@ -124,9 +124,9 @@
         if (lang === 'mermaid') {
           return `<pre class="mermaid-block" data-mermaid>${text}</pre>`;
         }
+        // text is already highlighted by markedHighlight — just wrap it
         const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-        const highlighted = hljs.highlight(text, { language }).value;
-        return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+        return `<pre><code class="hljs language-${language}">${text}</code></pre>`;
       },
     },
   });
