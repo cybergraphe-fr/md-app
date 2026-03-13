@@ -27,8 +27,7 @@
     "katex": "^0.16.33",
     "lucide-svelte": "^0.576.0",
     "marked": "^17.0.3",
-    "marked-emoji": "^2.0.2",
-    "marked-footnote": "^1.4.0",
+"marked-footnote": "^1.4.0",
     "marked-highlight": "^2.2.3",
     "mermaid": "^11.12.3"
   },

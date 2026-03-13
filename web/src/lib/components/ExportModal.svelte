@@ -78,8 +78,9 @@
         // File NOT saved — use raw export endpoint (no save required!)
         if (formatId === 'html') {
           // Generate HTML client-side from current content
+          const safeName = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
           const blob = new Blob([
-            `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${name}</title></head><body>\n${content}\n</body></html>`
+            `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeName}</title></head><body>\n${content}\n</body></html>`
           ], { type: 'text/html' });
           downloadBlob(blob, `${name}${ext}`);
         } else {

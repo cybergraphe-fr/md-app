@@ -105,7 +105,7 @@
     width: 240px;
     max-height: 460px;
     overflow-y: auto;
-    background: #18181b;
+    background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);

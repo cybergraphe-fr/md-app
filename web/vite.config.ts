@@ -41,7 +41,7 @@ export default defineConfig({
             '@codemirror/search',
           ],
           highlight: ['highlight.js'],
-          marked: ['marked', 'marked-highlight', 'marked-footnote', 'marked-emoji'],
+          marked: ['marked', 'marked-highlight', 'marked-footnote'],
         },
       },
     },

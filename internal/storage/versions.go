@@ -30,28 +30,43 @@ type VersionWithContent struct {
 }
 
 // versionsDir returns the directory for a file's version snapshots.
-func (s *Storage) versionsDir(fileID string) string {
-	return filepath.Join(s.root, ".versions", fileID)
+func (s *Storage) versionsDir(fileID string) (string, error) {
+	if !validID(fileID) {
+		return "", ErrInvalidID
+	}
+	return filepath.Join(s.root, ".versions", fileID), nil
 }
 
 // versionContentPath returns the path to a version's content file.
-func (s *Storage) versionContentPath(fileID, versionID string) string {
-	return filepath.Join(s.versionsDir(fileID), versionID+".md")
+func (s *Storage) versionContentPath(fileID, versionID string) (string, error) {
+	if !validID(fileID) || !validID(versionID) {
+		return "", ErrInvalidID
+	}
+	return filepath.Join(s.root, ".versions", fileID, versionID+".md"), nil
 }
 
 // versionMetaPath returns the path to a version's metadata sidecar.
-func (s *Storage) versionMetaPath(fileID, versionID string) string {
-	return filepath.Join(s.versionsDir(fileID), versionID+".json")
+func (s *Storage) versionMetaPath(fileID, versionID string) (string, error) {
+	if !validID(fileID) || !validID(versionID) {
+		return "", ErrInvalidID
+	}
+	return filepath.Join(s.root, ".versions", fileID, versionID+".json"), nil
 }
 
 // SaveVersion creates a new version snapshot for a file.
 func (s *Storage) SaveVersion(fileID, content, message string) (Version, error) {
+	if !validID(fileID) {
+		return Version{}, ErrInvalidID
+	}
 	// Verify the file exists.
 	if _, err := s.GetMeta(fileID); err != nil {
 		return Version{}, err
 	}
 
-	dir := s.versionsDir(fileID)
+	dir, err := s.versionsDir(fileID)
+	if err != nil {
+		return Version{}, err
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return Version{}, fmt.Errorf("create versions dir: %w", err)
 	}
@@ -69,7 +84,11 @@ func (s *Storage) SaveVersion(fileID, content, message string) (Version, error) 
 	}
 
 	// Write content.
-	if err := os.WriteFile(s.versionContentPath(fileID, vid), []byte(content), 0644); err != nil {
+	vcp, err := s.versionContentPath(fileID, vid)
+	if err != nil {
+		return Version{}, err
+	}
+	if err := os.WriteFile(vcp, []byte(content), 0644); err != nil {
 		return Version{}, fmt.Errorf("write version content: %w", err)
 	}
 
@@ -78,7 +97,11 @@ func (s *Storage) SaveVersion(fileID, content, message string) (Version, error) 
 	if err != nil {
 		return Version{}, err
 	}
-	if err := os.WriteFile(s.versionMetaPath(fileID, vid), meta, 0644); err != nil {
+	vmp, err := s.versionMetaPath(fileID, vid)
+	if err != nil {
+		return Version{}, err
+	}
+	if err := os.WriteFile(vmp, meta, 0644); err != nil {
 		return Version{}, fmt.Errorf("write version meta: %w", err)
 	}
 
@@ -87,7 +110,13 @@ func (s *Storage) SaveVersion(fileID, content, message string) (Version, error) 
 
 // ListVersions returns all versions for a file, newest first.
 func (s *Storage) ListVersions(fileID string) ([]Version, error) {
-	dir := s.versionsDir(fileID)
+	if !validID(fileID) {
+		return nil, ErrInvalidID
+	}
+	dir, err := s.versionsDir(fileID)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -120,7 +149,11 @@ func (s *Storage) ListVersions(fileID string) ([]Version, error) {
 
 // GetVersion returns a specific version's content.
 func (s *Storage) GetVersion(fileID, versionID string) (VersionWithContent, error) {
-	metaData, err := os.ReadFile(s.versionMetaPath(fileID, versionID))
+	vmp, err := s.versionMetaPath(fileID, versionID)
+	if err != nil {
+		return VersionWithContent{}, err
+	}
+	metaData, err := os.ReadFile(vmp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return VersionWithContent{}, ErrNotFound
@@ -133,7 +166,11 @@ func (s *Storage) GetVersion(fileID, versionID string) (VersionWithContent, erro
 		return VersionWithContent{}, err
 	}
 
-	content, err := os.ReadFile(s.versionContentPath(fileID, versionID))
+	vcp, err := s.versionContentPath(fileID, versionID)
+	if err != nil {
+		return VersionWithContent{}, err
+	}
+	content, err := os.ReadFile(vcp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return VersionWithContent{}, ErrNotFound
@@ -148,6 +185,9 @@ func (s *Storage) GetVersion(fileID, versionID string) (VersionWithContent, erro
 // content as a backup version, updates the file, and records the restore as
 // another version snapshot.
 func (s *Storage) RestoreVersion(fileID, versionID string) (File, error) {
+	if !validID(fileID) || !validID(versionID) {
+		return File{}, ErrInvalidID
+	}
 	vc, err := s.GetVersion(fileID, versionID)
 	if err != nil {
 		return File{}, fmt.Errorf("get version: %w", err)

@@ -396,11 +396,39 @@ func hmacSign(data, key string) string {
 type authHandler struct {
 	provider *oidcProvider
 	states   sync.Map // CSRF state -> expiry
+	done     chan struct{}
 }
 
 func newAuthHandler(cfg *OIDCConfig) *authHandler {
-	return &authHandler{
+	h := &authHandler{
 		provider: newOIDCProvider(cfg),
+		done:     make(chan struct{}),
+	}
+	go h.cleanupStates()
+	return h
+}
+
+// Shutdown stops the state cleanup goroutine.
+func (h *authHandler) Shutdown() {
+	close(h.done)
+}
+
+func (h *authHandler) cleanupStates() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-h.done:
+			return
+		case <-ticker.C:
+			now := time.Now()
+			h.states.Range(func(key, value any) bool {
+				if exp, ok := value.(time.Time); ok && now.After(exp) {
+					h.states.Delete(key)
+				}
+				return true
+			})
+		}
 	}
 }
 

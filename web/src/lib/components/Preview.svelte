@@ -14,7 +14,7 @@
     if (mermaidModule) return;
     const m = await import('mermaid');
     mermaidModule = m.default;
-    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
     mermaidReady = true;
   }
 
@@ -54,10 +54,12 @@
       },
       link(this: any, { href, title, tokens }: { href: string; title?: string | null; tokens: any[] }): string {
         const text = this.parser.parseInline(tokens);
-        const external = href?.startsWith('http') && !href.startsWith(window.location.origin);
+        const safeHref = /^\s*javascript\s*:/i.test(href ?? '') ? '' : href ?? '';
+        const escapedHref = safeHref.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        const external = safeHref.startsWith('http') && !safeHref.startsWith(window.location.origin);
         const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : '';
-        const t = title ? ` title="${title}"` : '';
-        return `<a href="${href}"${t}${attrs}>${text}</a>`;
+        const t = title ? ` title="${title.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"` : '';
+        return `<a href="${escapedHref}"${t}${attrs}>${text}</a>`;
       },
       image({ href, title, text }: { href: string; title?: string | null; text: string }): string {
         const t = title ? ` title="${title}"` : '';
@@ -238,7 +240,9 @@
   // Post-render: copy buttons, emojis, mermaid diagrams
   $effect(() => {
     if (!container || !renderedHtml) return;
-    setTimeout(async () => {
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      if (cancelled) return;
       // Copy buttons on code blocks
       container?.querySelectorAll('pre:not([data-copy]):not([data-mermaid])').forEach((pre) => {
         pre.setAttribute('data-copy', '1');
@@ -289,6 +293,7 @@
         }
       }
     }, 0);
+    return () => { cancelled = true; clearTimeout(timeoutId); };
   });
 
   onMount(() => {

@@ -1,9 +1,9 @@
 package api
 
 import (
+	"crypto/hmac"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"md/internal/config"
@@ -37,7 +37,7 @@ func apiKeyMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			if key == "" {
 				key = r.URL.Query().Get("api_key")
 			}
-			if !strings.EqualFold(key, cfg.APIKey) {
+			if !hmac.Equal([]byte(key), []byte(cfg.APIKey)) {
 				writeError(w, http.StatusUnauthorized, "invalid or missing API key")
 				return
 			}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -18,7 +19,14 @@ import (
 var (
 	ErrNotFound  = errors.New("file not found")
 	ErrForbidden = errors.New("access denied")
+	ErrInvalidID = errors.New("invalid file ID")
+
+	uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
+
+func validID(id string) bool {
+	return uuidRe.MatchString(id)
+}
 
 // File represents a stored markdown document.
 type File struct {
@@ -49,25 +57,35 @@ func New(root string) *Storage {
 }
 
 // metaPath returns the path to a file's JSON metadata sidecar.
-func (s *Storage) metaPath(id string) string {
-	return filepath.Join(s.root, ".meta", id+".json")
+func (s *Storage) metaPath(id string) (string, error) {
+	if !validID(id) {
+		return "", ErrInvalidID
+	}
+	return filepath.Join(s.root, ".meta", id+".json"), nil
 }
 
 // contentPath returns the path to a file's markdown content.
-func (s *Storage) contentPath(id string) string {
-	return filepath.Join(s.root, "files", id+".md")
+func (s *Storage) contentPath(id string) (string, error) {
+	if !validID(id) {
+		return "", ErrInvalidID
+	}
+	return filepath.Join(s.root, "files", id+".md"), nil
 }
 
 // saveMeta persists a File's metadata.
 func (s *Storage) saveMeta(f File) error {
-	if err := os.MkdirAll(filepath.Dir(s.metaPath(f.ID)), 0755); err != nil {
+	mp, err := s.metaPath(f.ID)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(mp), 0755); err != nil {
 		return err
 	}
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.metaPath(f.ID), b, 0644)
+	return os.WriteFile(mp, b, 0644)
 }
 
 // Create stores a new markdown document and returns its metadata.
@@ -79,7 +97,11 @@ func (s *Storage) Create(name, relPath, content string) (File, error) {
 		return File{}, err
 	}
 
-	if err := os.WriteFile(s.contentPath(id), []byte(content), 0644); err != nil {
+	cp, err := s.contentPath(id)
+	if err != nil {
+		return File{}, err
+	}
+	if err := os.WriteFile(cp, []byte(content), 0644); err != nil {
 		return File{}, err
 	}
 
@@ -108,7 +130,11 @@ func (s *Storage) GetContent(id string) (FileWithContent, error) {
 	if err != nil {
 		return FileWithContent{}, err
 	}
-	b, err := os.ReadFile(s.contentPath(id))
+	cp, err := s.contentPath(id)
+	if err != nil {
+		return FileWithContent{}, err
+	}
+	b, err := os.ReadFile(cp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return FileWithContent{}, ErrNotFound
@@ -120,7 +146,11 @@ func (s *Storage) GetContent(id string) (FileWithContent, error) {
 
 // GetMeta returns the metadata for a file.
 func (s *Storage) GetMeta(id string) (File, error) {
-	b, err := os.ReadFile(s.metaPath(id))
+	mp, err := s.metaPath(id)
+	if err != nil {
+		return File{}, err
+	}
+	b, err := os.ReadFile(mp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return File{}, ErrNotFound
@@ -141,7 +171,11 @@ func (s *Storage) Update(id, name, content string) (File, error) {
 		return File{}, err
 	}
 
-	if err := os.WriteFile(s.contentPath(id), []byte(content), 0644); err != nil {
+	cp, err := s.contentPath(id)
+	if err != nil {
+		return File{}, err
+	}
+	if err := os.WriteFile(cp, []byte(content), 0644); err != nil {
 		return File{}, err
 	}
 
@@ -163,9 +197,17 @@ func (s *Storage) Delete(id string) error {
 	if _, err := s.GetMeta(id); err != nil {
 		return err
 	}
-	_ = os.Remove(s.contentPath(id))
-	_ = os.Remove(s.metaPath(id))
-	return nil
+	cp, err := s.contentPath(id)
+	if err != nil {
+		return err
+	}
+	mp, err := s.metaPath(id)
+	if err != nil {
+		return err
+	}
+	errContent := os.Remove(cp)
+	errMeta := os.Remove(mp)
+	return errors.Join(errContent, errMeta)
 }
 
 // List returns all file metadata, sorted by UpdatedAt desc.
@@ -221,9 +263,12 @@ func sanitizeName(name string) string {
 }
 
 func sanitizePath(p string) string {
+	if strings.ContainsRune(p, 0) {
+		return ""
+	}
 	cleaned := filepath.Clean(strings.ReplaceAll(p, "\\", "/"))
-	// Prevent path traversal
-	if strings.HasPrefix(cleaned, "..") {
+	// Prevent path traversal and absolute paths
+	if strings.HasPrefix(cleaned, "..") || strings.HasPrefix(cleaned, "/") {
 		return ""
 	}
 	return cleaned

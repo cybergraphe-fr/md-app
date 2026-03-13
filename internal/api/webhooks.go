@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -52,6 +53,10 @@ func (h *webhookHandler) create(w http.ResponseWriter, r *http.Request) {
 
 	hook, err := h.mgr.Create(body.URL, body.Events, body.Secret, body.Active)
 	if err != nil {
+		if errors.Is(err, webhooks.ErrUnsafeURL) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "could not create webhook")
 		return
 	}
@@ -79,6 +84,10 @@ func (h *webhookHandler) update(w http.ResponseWriter, r *http.Request) {
 
 	hook, err := h.mgr.Update(id, body.URL, body.Events, body.Secret, body.Active)
 	if err != nil {
+		if errors.Is(err, webhooks.ErrUnsafeURL) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}

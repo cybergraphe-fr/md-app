@@ -117,12 +117,12 @@ export const api = {
   },
 
   exportFormat(id: string, format: string, margin?: string): string {
-    const qs = margin ? `?margin=${margin}` : '';
+    const qs = margin ? `?margin=${encodeURIComponent(margin)}` : '';
     return `${BASE}/files/${id}/export/${format}${qs}`;
   },
 
   exportRawFormat(format: string, margin?: string): string {
-    const qs = margin ? `?margin=${margin}` : '';
+    const qs = margin ? `?margin=${encodeURIComponent(margin)}` : '';
     return `${BASE}/export/raw/${format}${qs}`;
   },
 

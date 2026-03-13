@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"runtime"
 	"time"
@@ -38,7 +39,9 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
-	_ = enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		slog.Error("writeJSON: encode failed", "error", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

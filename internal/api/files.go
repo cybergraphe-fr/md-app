@@ -2,11 +2,11 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -202,7 +202,7 @@ func (h *filesHandler) render(w http.ResponseWriter, r *http.Request) {
 	result := map[string]string{"html": rendered, "name": fwc.Name}
 	if h.cache != nil {
 		if b, err := marshalJSON(result); err == nil {
-			_ = h.cache.Set(context.Background(), cacheKey, string(b))
+			_ = h.cache.Set(r.Context(), cacheKey, string(b))
 		}
 	}
 
@@ -240,6 +240,15 @@ func (h *filesHandler) importFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// Validate file type: only text content or known extensions.
+	ct := header.Header.Get("Content-Type")
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowedExts := map[string]bool{".md": true, ".txt": true, ".html": true, ".markdown": true, ".htm": true}
+	if !allowedExts[ext] && !strings.HasPrefix(ct, "text/") {
+		writeError(w, http.StatusBadRequest, "only text/markdown files are allowed")
+		return
+	}
 
 	name := strings.TrimSuffix(header.Filename, ".md")
 	name = strings.TrimSuffix(name, ".txt")

@@ -17,7 +17,8 @@
       query = '';
       results = [];
       searched = false;
-      setTimeout(() => inputEl?.focus(), 50);
+      const focusTimer = setTimeout(() => inputEl?.focus(), 50);
+      return () => { clearTimeout(focusTimer); clearTimeout(debounceTimer); };
     }
   });
 
@@ -59,6 +60,7 @@
 
   function highlightMatch(text: string, q: string): string {
     if (!q) return text;
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
   }
