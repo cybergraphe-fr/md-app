@@ -27,7 +27,7 @@
 # ─────────────────────────────────────────────────────────────
 # Produces a static SPA in /src/web/dist/ (adapter-static).
 # Only package.json + lock file are copied first for layer caching.
-FROM node:24-alpine AS web-build
+FROM node:25-alpine AS web-build
 WORKDIR /src
 
 # Install dependencies (cached unless package*.json changes)
