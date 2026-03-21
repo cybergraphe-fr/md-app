@@ -15,7 +15,7 @@
     if (mermaidModule) return;
     const m = await import('mermaid');
     mermaidModule = m.default;
-    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
     mermaidReady = true;
   }
 
@@ -321,10 +321,29 @@
       // Emoji shortcodes
       container?.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6').forEach((el) => {
         if (el.children.length === 0 && el.textContent?.includes(':')) {
-          el.innerHTML = el.innerHTML.replace(/:([a-z0-9_+-]+):/g, (match, name) => {
+          const text = el.textContent;
+          const parts: (string | Node)[] = [];
+          let lastIndex = 0;
+          text.replace(/:([a-z0-9_+-]+):/g, (match, name, offset) => {
+            if (offset > lastIndex) parts.push(document.createTextNode(text.slice(lastIndex, offset)));
             const emoji = emojiMap[name];
-            return emoji ? `<span class="emoji" title=":${name}:">${emoji}</span>` : match;
+            if (emoji) {
+              const span = document.createElement('span');
+              span.className = 'emoji';
+              span.title = `:${name}:`;
+              span.textContent = emoji;
+              parts.push(span);
+            } else {
+              parts.push(document.createTextNode(match));
+            }
+            lastIndex = offset + match.length;
+            return match;
           });
+          if (parts.length > 0) {
+            if (lastIndex < text.length) parts.push(document.createTextNode(text.slice(lastIndex)));
+            el.textContent = '';
+            parts.forEach(p => el.appendChild(p instanceof Node ? p : document.createTextNode(String(p))));
+          }
         }
       });
 
@@ -339,7 +358,7 @@
             const { svg } = await mermaidModule.render(`mermaid-${mermaidCounter}`, src);
             const div = document.createElement('div');
             div.className = 'mermaid-diagram';
-            div.innerHTML = svg;
+            div.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } });
             block.replaceWith(div);
           } catch {
             block.classList.add('mermaid-error');
