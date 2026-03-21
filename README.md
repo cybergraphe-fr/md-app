@@ -287,7 +287,7 @@ Additional runtime hardening in `main`:
 ## Project Structure
 
 ```text
-apps/md/           ← (rename to "md" in production)
+apps/cybergraphe/md/           ← (rename to "md" in production)
 ├── cmd/
 │   └── server/
 │       └── main.go         ← Entry point

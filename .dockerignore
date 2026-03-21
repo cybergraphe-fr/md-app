@@ -1,0 +1,5 @@
+data/
+postgres_data/
+backups/
+logs/
+*.log

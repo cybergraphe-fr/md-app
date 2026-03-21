@@ -18,7 +18,7 @@
 #   2. Adjust YOUR_DOMAIN below (search & replace)
 #
 #   3. Adjust the volume paths to match your NAS filesystem
-#      (e.g. /volume1/docker/apps/md/data → your path)
+#      (e.g. /volume1/docker/apps/cybergraphe/md/data → your path)
 #
 #   4. Deploy:
 #        docker compose -f docker-compose.nas.yml up -d --build

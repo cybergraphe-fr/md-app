@@ -17,6 +17,32 @@
   let searchOpen = $state(false);
   let historyOpen = $state(false);
 
+  /* ─── Split pane resizer ─── */
+  let splitRatio = $state(0.5);
+  let dragging = $state(false);
+  let workspaceEl = $state<HTMLElement | undefined>(undefined);
+
+  function onDividerPointerDown(e: PointerEvent): void {
+    e.preventDefault();
+    dragging = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onDividerPointerMove(e: PointerEvent): void {
+    if (!dragging || !workspaceEl) return;
+    const rect = workspaceEl.getBoundingClientRect();
+    const isVertical = rect.width > 820;
+    if (isVertical) {
+      splitRatio = Math.min(0.85, Math.max(0.15, (e.clientX - rect.left) / rect.width));
+    } else {
+      splitRatio = Math.min(0.85, Math.max(0.15, (e.clientY - rect.top) / rect.height));
+    }
+  }
+
+  function onDividerPointerUp(): void {
+    dragging = false;
+  }
+
   onMount(async () => {
     initTheme();
     await loadFiles();
@@ -66,13 +92,21 @@
       {/if}
 
       <!-- Editor / Preview workspace -->
-      <div class="workspace">
+      <div class="workspace" bind:this={workspaceEl}>
         {#if $viewMode === 'split'}
-          <div class="pane editor-pane">
+          <div class="pane editor-pane" style="flex: {splitRatio} 1 0%">
             <Editor />
           </div>
-          <div class="pane-divider"></div>
-          <div class="pane preview-pane">
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="pane-divider"
+            class:dragging
+            onpointerdown={onDividerPointerDown}
+            onpointermove={onDividerPointerMove}
+            onpointerup={onDividerPointerUp}
+            onpointercancel={onDividerPointerUp}
+          ></div>
+          <div class="pane preview-pane" style="flex: {1 - splitRatio} 1 0%">
             <Preview />
           </div>
         {:else if $viewMode === 'editor'}
@@ -198,12 +232,22 @@
     background: var(--border);
     flex-shrink: 0;
     position: relative;
+    touch-action: none;
+    user-select: none;
+    z-index: 5;
   }
   .pane-divider::after {
     content: '';
     position: absolute;
-    inset: 0 -3px;
+    inset: 0 -4px;
     cursor: col-resize;
+  }
+  .pane-divider:hover,
+  .pane-divider.dragging {
+    background: var(--accent);
+  }
+  .pane-divider.dragging::after {
+    inset: 0 -20px;
   }
 
   .app-footer {
@@ -303,10 +347,11 @@
     .pane-divider {
       width: 100%;
       height: 1px;
+      touch-action: none;
     }
 
     .pane-divider::after {
-      inset: -3px 0;
+      inset: -4px 0;
       cursor: row-resize;
     }
 

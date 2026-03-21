@@ -280,13 +280,20 @@ html, body {
 .prose table {
   border-collapse: collapse;
   width: 100%;
-  margin: 1.25rem 0;
+  margin: 0;
   font-size: 0.95em;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
 }
+
+.prose .table-scroll {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  border-radius: var(--radius);
+}
 .prose th, .prose td { border: 1px solid var(--border); padding: 0.55rem 0.9rem; text-align: left; }
+.prose td { word-break: break-word; }
 .prose th {
   background: var(--bg-surface);
   font-weight: 600;

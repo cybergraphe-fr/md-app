@@ -72,6 +72,19 @@
         const highlighted = hljs.highlight(text, { language }).value;
         return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
       },
+      table({ header, rows }: { header: any[]; rows: any[][] }): string {
+        const hdr = header.map((h: any) => {
+          const align = h.align ? ` style="text-align:${h.align}"` : '';
+          return `<th${align}>${this.parser.parseInline(h.tokens)}</th>`;
+        }).join('');
+        const body = rows.map((row: any[]) =>
+          '<tr>' + row.map((cell: any) => {
+            const align = cell.align ? ` style="text-align:${cell.align}"` : '';
+            return `<td${align}>${this.parser.parseInline(cell.tokens)}</td>`;
+          }).join('') + '</tr>'
+        ).join('\n');
+        return `<div class="table-scroll"><table><thead><tr>${hdr}</tr></thead><tbody>${body}</tbody></table></div>`;
+      },
     },
   });
 

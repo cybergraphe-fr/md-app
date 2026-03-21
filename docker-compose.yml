@@ -71,10 +71,10 @@ services:
     restart: unless-stopped
     command: >
       redis-server
-      --maxmemory 256mb                   # cap memory usage
-      --maxmemory-policy allkeys-lru      # evict least-recently-used keys
-      --save 900 1                        # snapshot to disk every 15 min
-      --appendonly yes                    # write-ahead log for durability
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --appendonly yes
     volumes:
       - redis_data:/data                  # persist cache across restarts
     networks:
