@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { EditorView, keymap, lineNumbers, drawSelection, dropCursor } from '@codemirror/view';
-  import { EditorState, type Extension } from '@codemirror/state';
+  import { EditorState, Compartment, type Extension } from '@codemirror/state';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
   import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -18,6 +18,7 @@
 
   let container: HTMLDivElement;
   let view: EditorView | undefined;
+  const themeCompartment = new Compartment();
 
   function buildTheme(dark: boolean): Extension {
     return EditorView.theme(
@@ -109,7 +110,7 @@
       }),
       highlightSelectionMatches(),
       autocompletion(),
-      buildTheme(dark),
+      themeCompartment.of(buildTheme(dark)),
       keymap.of([
         indentWithTab,
         ...defaultKeymap,
@@ -310,7 +311,11 @@
   let currentTheme: 'light' | 'dark' = 'light';
   const unsubTheme = theme.subscribe((t) => {
     currentTheme = t;
-    if (view) recreateExtensions(t === 'dark');
+    if (view) {
+      view.dispatch({
+        effects: themeCompartment.reconfigure(buildTheme(t === 'dark')),
+      });
+    }
   });
 
   let lastExternalContent = '';
@@ -331,19 +336,6 @@
     lastFormatActionId = action.id;
     applyFormat(action.kind);
   });
-
-  function recreateExtensions(dark: boolean): void {
-    if (!view) return;
-    view.dispatch({
-      effects: EditorView.scrollIntoView(0),
-    });
-    const doc = view.state.doc.toString();
-    const state = EditorState.create({
-      doc,
-      extensions: createExtensions(dark),
-    });
-    view.setState(state);
-  }
 
   onMount(() => {
     const state = EditorState.create({

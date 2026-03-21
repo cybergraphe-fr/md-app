@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -33,6 +35,11 @@ func newExportHandler(store *storage.Storage, cfg *config.Config) *exportHandler
 // Comprehensive format string that matches the GFM-like rendering of
 // marked.js in the webapp preview.  Every extension is explicit so that
 // upgrades to the Pandoc version never silently remove support.
+// stderrBufPool reuses bytes.Buffer instances for command stderr capture.
+var stderrBufPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
+
 const pandocInputFmt = "markdown" +
 	"+pipe_tables" +
 	"+grid_tables" +
@@ -164,7 +171,11 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			slog.Warn("cleanup tmp dir failed", "path", tmpDir, "error", err)
+		}
+	}()
 
 	inputFile := filepath.Join(tmpDir, "input.md")
 	outputFile := filepath.Join(tmpDir, "output"+fmtInfo.ext)
@@ -175,7 +186,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		content = preprocessPageBreaks(content)
 	}
 
-	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(inputFile, []byte(content), 0600); err != nil {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
@@ -200,18 +211,33 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	output, err := os.ReadFile(outputFile)
+	if err := streamFile(w, outputFile, fmtInfo.contentType, fwc.Slug+fmtInfo.ext); err != nil {
+		slog.Warn("write export response failed", "error", err)
+	}
+}
+
+// streamFile opens a file and streams it to the response writer.
+func streamFile(w http.ResponseWriter, path, contentType, filename string) error {
+	f, err := os.Open(path)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not read export output")
-		return
+		return err
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not read export output")
+		return err
 	}
 
-	filename := fwc.Slug + fmtInfo.ext
-	w.Header().Set("Content-Type", fmtInfo.contentType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
+	safeFilename := strings.NewReplacer(`"`, "", `\`, "", "\r", "", "\n", "").Replace(filename)
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeFilename))
+	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
 	w.WriteHeader(http.StatusOK)
-	w.Write(output)
+	_, err = io.Copy(w, f)
+	return err
 }
 
 // runPandocExport runs Pandoc for non-PDF formats.
@@ -224,9 +250,11 @@ func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFi
 		"-o", outputFile,
 		inputFile,
 	}
-	var stderr bytes.Buffer
+	stderr := stderrBufPool.Get().(*bytes.Buffer)
+	stderr.Reset()
+	defer stderrBufPool.Put(stderr)
 	cmd := exec.CommandContext(ctx, h.cfg.PandocBinary, args...)
-	cmd.Stderr = &stderr
+	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%w — %s", err, strings.TrimSpace(stderr.String()))
 	}
@@ -256,9 +284,11 @@ func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, o
 		"-o", htmlFile,
 		inputFile,
 	}
-	var buf1 bytes.Buffer
+	buf1 := stderrBufPool.Get().(*bytes.Buffer)
+	buf1.Reset()
+	defer stderrBufPool.Put(buf1)
 	cmd1 := exec.CommandContext(ctx, h.cfg.PandocBinary, pandocArgs...)
-	cmd1.Stderr = &buf1
+	cmd1.Stderr = buf1
 	if err := cmd1.Run(); err != nil {
 		return fmt.Errorf("pandoc html stage: %w — %s", err, strings.TrimSpace(buf1.String()))
 	}
@@ -272,15 +302,17 @@ func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, o
 		override := marginOverrideCSS(margins)
 		// Inject right before </head>
 		modified := strings.Replace(string(htmlBytes), "</head>", override+"\n</head>", 1)
-		if err := os.WriteFile(htmlFile, []byte(modified), 0644); err != nil {
+		if err := os.WriteFile(htmlFile, []byte(modified), 0600); err != nil {
 			return fmt.Errorf("write margin override: %w", err)
 		}
 	}
 
 	// Step 3: WeasyPrint → PDF
-	var buf2 bytes.Buffer
+	buf2 := stderrBufPool.Get().(*bytes.Buffer)
+	buf2.Reset()
+	defer stderrBufPool.Put(buf2)
 	cmd2 := exec.CommandContext(ctx, h.cfg.WeasyprintBinary, htmlFile, outputFile)
-	cmd2.Stderr = &buf2
+	cmd2.Stderr = buf2
 	if err := cmd2.Run(); err != nil {
 		return fmt.Errorf("weasyprint stage: %w — %s", err, strings.TrimSpace(buf2.String()))
 	}
@@ -324,7 +356,11 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			slog.Warn("cleanup tmp dir failed", "path", tmpDir, "error", err)
+		}
+	}()
 
 	inputFile := filepath.Join(tmpDir, "input.md")
 	outputFile := filepath.Join(tmpDir, "output"+fmtInfo.ext)
@@ -334,7 +370,7 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		rawContent = preprocessPageBreaks(rawContent)
 	}
 
-	if err := os.WriteFile(inputFile, []byte(rawContent), 0644); err != nil {
+	if err := os.WriteFile(inputFile, []byte(rawContent), 0600); err != nil {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
@@ -358,17 +394,8 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	output, err := os.ReadFile(outputFile)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not read export output")
-		return
-	}
-
 	slug := strings.TrimSuffix(strings.ReplaceAll(strings.ToLower(body.Name), " ", "-"), ".md")
-	filename := slug + fmtInfo.ext
-	w.Header().Set("Content-Type", fmtInfo.contentType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
-	w.WriteHeader(http.StatusOK)
-	w.Write(output)
+	if err := streamFile(w, outputFile, fmtInfo.contentType, slug+fmtInfo.ext); err != nil {
+		slog.Warn("write export response failed", "error", err)
+	}
 }

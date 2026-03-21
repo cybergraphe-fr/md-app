@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/yuin/goldmark"
@@ -48,11 +49,18 @@ var md = goldmark.New(
 
 const renderCacheVersion = "v2"
 
+// bufPool reuses bytes.Buffer for markdown rendering.
+var bufPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
+
 // renderMarkdown converts markdown content to an HTML string.
 func renderMarkdown(content string) (string, error) {
 	content = preprocessMarkdown(content)
-	var buf bytes.Buffer
-	if err := md.Convert([]byte(content), &buf); err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	if err := md.Convert([]byte(content), buf); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -206,7 +214,9 @@ func (h *filesHandler) render(w http.ResponseWriter, r *http.Request) {
 	result := map[string]string{"html": rendered, "name": fwc.Name}
 	if h.cache != nil {
 		if b, err := marshalJSON(result); err == nil {
-			_ = h.cache.Set(context.Background(), cacheKey, string(b))
+			if err := h.cache.Set(context.Background(), cacheKey, string(b)); err != nil {
+				slog.Warn("cache set failed", "key", cacheKey, "error", err)
+			}
 		}
 	}
 

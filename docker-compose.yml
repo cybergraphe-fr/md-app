@@ -13,8 +13,6 @@
 # For production with Traefik → use docker-compose.nas.yml or .cloud.yml
 # ═══════════════════════════════════════════════════════════════════════════
 
-version: '3.8'
-
 services:
 
   # ── API + Frontend ───────────────────────────────────────────────────
@@ -30,6 +28,10 @@ services:
         BUILD_DATE: ${BUILD_DATE:-unknown}
     container_name: md-app
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
     environment:
       # ── Server ──

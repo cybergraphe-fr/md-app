@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -25,6 +24,7 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(middleware.Compress(5, "application/json", "text/html", "text/css", "application/javascript"))
 	r.Use(loggingMiddleware)
 	r.Use(securityHeaders)
 	r.Use(cors.Handler(cors.Options{
@@ -137,22 +137,9 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 // ---- helper: JSON decode ----
 
 func decodeJSON(r *http.Request, v any) error {
-	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(body, v)
+	return json.NewDecoder(io.LimitReader(r.Body, 10<<20)).Decode(v)
 }
 
 func marshalJSON(v any) ([]byte, error) {
 	return json.Marshal(v)
-}
-
-// ---- helper: write raw ----
-
-func writeRaw(w http.ResponseWriter, status int, contentType string, body []byte) {
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(status)
-	w.Write(body)
 }

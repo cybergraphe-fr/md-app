@@ -1,0 +1,35 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+        - (*net/http.Response).Body.Close
+        - io.Copy
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (*os.File).Close
+        - crypto/rand.Read
+        - os.Remove
+
+  exclusions:
+    paths:
+      - .github
+      - .claude
+      - web
+      - pandoc
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck

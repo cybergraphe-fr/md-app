@@ -139,7 +139,11 @@ export async function createFile(name = 'untitled', content = ''): Promise<void>
   }
 }
 
+let deleteInFlight = new Set<string>();
+
 export async function deleteFile(id: string): Promise<void> {
+  if (deleteInFlight.has(id)) return;
+  deleteInFlight.add(id);
   try {
     await api.delete(id);
     files.update((fs) => fs.filter((f) => f.id !== id));
@@ -151,6 +155,8 @@ export async function deleteFile(id: string): Promise<void> {
     }
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to delete file');
+  } finally {
+    deleteInFlight.delete(id);
   }
 }
 

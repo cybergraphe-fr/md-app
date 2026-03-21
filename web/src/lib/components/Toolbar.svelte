@@ -47,17 +47,10 @@
     Link2,
   } from 'lucide-svelte';
 
-  let {
-    onExport,
-    onTemplates,
-    onSearch,
-    onHistory,
-  }: {
-    onExport: () => void;
-    onTemplates: () => void;
-    onSearch: () => void;
-    onHistory: () => void;
-  } = $props();
+  export let onExport: () => void;
+  export let onTemplates: () => void;
+  export let onSearch: () => void;
+  export let onHistory: () => void;
 
   const viewIcons: Record<string, typeof Columns2> = {
     split: Columns2,
@@ -66,6 +59,10 @@
   };
 
   const viewLabels = { split: 'Split', editor: 'Editor', preview: 'Preview' };
+  const viewEntries = Object.entries(viewLabels) as Array<[
+    'split' | 'editor' | 'preview',
+    string,
+  ]>;
 
   const formatButtons: Array<{
     action: FormatActionKind;
@@ -107,9 +104,19 @@
       onSearch();
     }
   }
+  let showShortcuts = false;
+
+  function toggleShortcuts(e: MouseEvent): void {
+    e.stopPropagation();
+    showShortcuts = !showShortcuts;
+  }
+
+  function closeShortcuts(): void {
+    showShortcuts = false;
+  }
 </script>
 
-<svelte:window onkeydown={handleKeyboardShortcuts} />
+<svelte:window onkeydown={handleKeyboardShortcuts} onclick={closeShortcuts} />
 
 <header class="toolbar no-print">
   <!-- Left: sidebar toggle + title -->
@@ -139,7 +146,7 @@
 
   <!-- Center: view mode -->
   <div class="toolbar-center">
-    {#each Object.entries(viewLabels) as [mode, label]}
+    {#each viewEntries as [mode, label]}
       {@const IconComp = viewIcons[mode]}
       <button
         class="btn btn-icon view-btn"
@@ -210,10 +217,22 @@
     <button
       class="btn btn-icon"
       title="Keyboard shortcuts"
-      onclick={() => alert('Ctrl+S: Save\nCtrl+B: Bold\nCtrl+I: Italic\nCtrl+K: Link\nCtrl+Shift+P: Toggle preview')}
+      onclick={toggleShortcuts}
     >
       <Keyboard size={15} />
     </button>
+    {#if showShortcuts}
+      <div class="shortcuts-popover">
+        <div class="shortcuts-title">Keyboard Shortcuts</div>
+        <ul class="shortcuts-list">
+          <li><kbd>Ctrl+S</kbd> Save</li>
+          <li><kbd>Ctrl+B</kbd> Bold</li>
+          <li><kbd>Ctrl+I</kbd> Italic</li>
+          <li><kbd>Ctrl+K</kbd> Link / Search</li>
+          <li><kbd>Ctrl+Shift+P</kbd> Toggle preview</li>
+        </ul>
+      </div>
+    {/if}
   </div>
 </header>
 
@@ -435,5 +454,61 @@
       padding: 0.3rem 0.48rem;
       font-size: 11.5px;
     }
+  }
+
+  /* Shortcuts popover */
+  .shortcuts-popover {
+    position: absolute;
+    top: 100%;
+    right: 0.5rem;
+    z-index: 100;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    padding: 0.75rem 1rem;
+    min-width: 220px;
+    animation: popover-in 0.12s ease-out;
+  }
+
+  @keyframes popover-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .shortcuts-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .shortcuts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .shortcuts-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+  }
+
+  .shortcuts-list kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-hover);
+    border: 1px solid var(--border-subtle);
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    min-width: 24px;
+    text-align: center;
+    color: var(--text-secondary);
   }
 </style>
