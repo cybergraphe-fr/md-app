@@ -101,7 +101,7 @@ RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 # ─────────────────────────────────────────────────────────────
 # Minimal production image. Only the compiled binary, the SPA,
 # Pandoc templates, and system tools are included.
-FROM alpine:3.21 AS runtime
+FROM alpine:3.23 AS runtime
 # Note: upgrade to alpine:3.23 when available and tested
 
 # OCI image metadata (adjust source URL if you forked the project)
