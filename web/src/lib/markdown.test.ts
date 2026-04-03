@@ -61,6 +61,17 @@ describe('Markdown normalization for preview', () => {
     expect(html).toContain('Heading 3');
   });
 
+  it('normalizes indented tight h2 headings and renders them', () => {
+    const content = '    ##Titre section';
+    const normalized = normalizeMarkdown(content);
+
+    expect(normalized).toContain('## Titre section');
+
+    const html = renderPreview(content);
+    expect(html).toContain('<h2');
+    expect(html).toContain('Titre section');
+  });
+
   it('preserves markdown syntax for lists, blockquotes, tables, and fenced code', () => {
     const content = [
       '- Item A',

@@ -1,5 +1,6 @@
 const reListItem = /^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)/;
 const reIndentedHeading = /^[ \t]{4,}(#{1,6}[ \t]+)/;
+const reIndentedTightAtxHeading = /^[ \t]{4,}(#{2,6})([^\s#])/;
 const reInlineHeading = /[ \t]+(#{1,6}[ \t]+)/g;
 const reTightAtxHeading = /^(\s{0,3}#{1,6})([^\s#])/;
 const reInlineTightAtxHeading = /([ \t])(#{2,6})([^\s#])/g;
@@ -116,6 +117,7 @@ export function normalizeMarkdown(content: string): string {
     }
 
     line = line.replace(reIndentedHeading, '$1');
+    line = line.replace(reIndentedTightAtxHeading, '$1 $2');
     line = line.replace(reTightAtxHeading, '$1 $2');
 
     const t = line.trim();
