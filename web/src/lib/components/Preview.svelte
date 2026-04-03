@@ -29,6 +29,8 @@
   import mdLang from 'highlight.js/lib/languages/markdown';
   import plaintext from 'highlight.js/lib/languages/plaintext';
   import { activeContent } from '$lib/stores/files';
+  import { hasMermaidFence, isMermaidLanguage } from '$lib/mermaid';
+  import { preprocessPreviewMarkdown } from '$lib/markdown';
 
   // Register languages for tree-shaken hljs
   hljs.registerLanguage('javascript', javascript);
@@ -67,14 +69,19 @@
   hljs.registerLanguage('text', plaintext);
 
   // ── Mermaid (lazy‑loaded) ──
-  let mermaidReady = false;
-  let mermaidModule: typeof import('mermaid')['default'] | null = null;
+  let mermaidReady = $state(false);
+  let mermaidModule = $state<typeof import('mermaid')['default'] | null>(null);
 
   async function ensureMermaid() {
     if (mermaidModule) return;
     const m = await import('mermaid');
     mermaidModule = m.default;
-    mermaidModule.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+    mermaidModule.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'strict',
+      flowchart: { htmlLabels: false },
+    });
     mermaidReady = true;
   }
 
@@ -92,7 +99,7 @@
     markedHighlight({
       langPrefix: 'hljs language-',
       highlight(code, lang) {
-        if (lang === 'mermaid') return code; // pass-through for mermaid
+        if (isMermaidLanguage(lang)) return code; // pass-through for mermaid
         const language = hljs.getLanguage(lang) ? lang : 'plaintext';
         return hljs.highlight(code, { language }).value;
       },
@@ -123,13 +130,14 @@
         const t = title ? ` title="${title}"` : '';
         return `<img src="${href}" alt="${text}"${t} loading="lazy">`;
       },
-      code({ text, lang }: { text: string; lang?: string }): string {
-        if (lang === 'mermaid') {
-          return `<pre class="mermaid-block" data-mermaid>${text}</pre>`;
+      code({ text, lang, escaped }: { text: string; lang?: string; escaped?: boolean }): string {
+        if (isMermaidLanguage(lang)) {
+          const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return `<pre class="mermaid-block" data-mermaid="true">${safe}</pre>`;
         }
         const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-        const highlighted = hljs.highlight(text, { language }).value;
-        return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+        const code = escaped ? text : hljs.highlight(text, { language }).value;
+        return `<pre><code class="hljs language-${language}">${code}</code></pre>`;
       },
       table({ header, rows }: { header: any[]; rows: any[][] }): string {
         const hdr = header.map((h: any) => {
@@ -165,169 +173,6 @@
     return html;
   }
 
-  // ── Markdown normalization (keeps preview consistent with backend/export) ──
-  function normalizeMarkdown(content: string): string {
-    if (!content) return content;
-
-    const isListItem = (line: string): boolean => /^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)/.test(line.trimEnd());
-    const isSpecialMarkdownLine = (line: string): boolean => {
-      const trimmed = line.trim();
-      if (!trimmed) return true;
-      return isListItem(line)
-        || trimmed.startsWith('#')
-        || trimmed.startsWith('>')
-        || trimmed.startsWith('|')
-        || trimmed.startsWith('```')
-        || trimmed.startsWith('~~~');
-    };
-
-    content = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\u00a0/g, ' ');
-
-    const lines = content.split('\n');
-    const out: string[] = [];
-    let inFence = false;
-
-    const normalizeInlineTableLine = (line: string): string[] | null => {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.includes('||') || (trimmed.match(/\|/g) ?? []).length < 4) {
-        return null;
-      }
-
-      let normalized = line.replaceAll('—', '-').replaceAll('–', '-');
-      const outRows: string[] = [];
-      let hadPrefix = false;
-
-      const firstPipe = normalized.indexOf('|');
-      if (firstPipe > 0) {
-        const prefix = normalized.slice(0, firstPipe).trim();
-        if (prefix) {
-          outRows.push(prefix);
-          hadPrefix = true;
-        }
-        normalized = normalized.slice(firstPipe);
-      }
-
-      if (hadPrefix) outRows.push('');
-
-      let tableRows = 0;
-      for (const chunk of normalized.split('||')) {
-        let row = chunk.trim();
-        if (!row) continue;
-        if ((row.match(/\|/g) ?? []).length < 2) {
-          outRows.push(row);
-          continue;
-        }
-        if (!row.startsWith('|')) row = `| ${row}`;
-        if (!row.endsWith('|')) row = `${row} |`;
-
-        const inner = row.replace(/^\|/, '').replace(/\|$/, '').trim();
-        if (/^[\s|:\-]+$/.test(inner)) {
-          const cells = row
-            .replace(/^\|/, '')
-            .replace(/\|$/, '')
-            .split('|')
-            .map((raw) => {
-              const c = raw.trim();
-              const left = c.startsWith(':');
-              const right = c.endsWith(':');
-              let sep = '---';
-              if (left) sep = `:${sep}`;
-              if (right) sep = `${sep}:`;
-              return sep;
-            });
-          row = `| ${cells.join(' | ')} |`;
-        }
-
-        outRows.push(row);
-        tableRows++;
-      }
-
-      if (tableRows < 2) return null;
-      outRows.push('');
-      return outRows;
-    };
-
-    for (let index = 0; index < lines.length; index++) {
-      let line = lines[index];
-      const trimmed = line.trim();
-      let nextSignificant = '';
-      for (let j = index + 1; j < lines.length; j++) {
-        const candidate = lines[j]?.trim() ?? '';
-        if (candidate) {
-          nextSignificant = lines[j];
-          break;
-        }
-      }
-
-      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
-        inFence = !inFence;
-        out.push(line);
-        continue;
-      }
-
-      if (inFence) {
-        out.push(line);
-        continue;
-      }
-
-      line = line.replace(/^\s{4,}(#{1,6}\s+)/, '$1');
-
-      const t = line.trim();
-      if (t.startsWith('• ')) {
-        line = `- ${t.slice(2)}`;
-      } else if (t.startsWith('◦ ')) {
-        line = `  - ${t.slice(2)}`;
-      } else if (t.startsWith('* ')) {
-        const leading = (line.match(/^(\s*)/)?.[1] ?? '').length;
-        const prefix = leading <= 1 ? '' : ' '.repeat(leading);
-        line = `${prefix}- ${t.slice(2)}`;
-      }
-
-      if (!line.trimStart().startsWith('#') && /\s+(#{1,6}\s+)/.test(line)) {
-        line = line.replace(/\s+(#{1,6}\s+)/g, '\n\n$1');
-      }
-
-      if (!/^\s*[-*+]/.test(line) && /\s+•\s+/.test(line)) {
-        line = line.replace(/\s+•\s+/g, '\n- ');
-      }
-
-      if (/\s+◦\s+/.test(line)) {
-        line = line.replace(/\s+◦\s+/g, '\n  - ');
-      }
-
-      if (/\s+\*\s+/.test(line)) {
-        const replacement = isListItem(line) ? '\n  - ' : '\n- ';
-        line = line.replace(/\s+\*\s+/g, replacement);
-      }
-
-      if (line.trim() && isListItem(nextSignificant) && !isSpecialMarkdownLine(line)) {
-        if (out.length > 0 && out[out.length - 1]?.trim()) out.push('');
-        out.push(line, '');
-        continue;
-      }
-
-      for (const segment of line.split('\n')) {
-        if (isListItem(segment) && out.length > 0) {
-          const prevRaw = out[out.length - 1] ?? '';
-          const prev = prevRaw.trim();
-          if (prev && !isListItem(prevRaw) && !prev.startsWith('|') && !prev.startsWith('#') && !prev.startsWith('>')) {
-            out.push('');
-          }
-        }
-
-        const tableLines = normalizeInlineTableLine(segment);
-        if (tableLines) out.push(...tableLines);
-        else out.push(segment);
-      }
-    }
-
-    return out.join('\n');
-  }
-
-  // ── Page break marker regex (matches \newpage, \pagebreak, <!-- pagebreak -->, --- pagebreak ---) ──
-  const pageBreakRe = /^(\\(?:newpage|pagebreak)\s*$|<!--\s*pagebreak\s*-->\s*$|---\s*pagebreak\s*---\s*$)/gm;
-  const pageBreakHtml = '<div class="pagebreak-indicator" aria-label="Page break"><span>⸻ Saut de page ⸻</span></div>';
-
   // ── Reactive state (Svelte 5 runes) ──
   let renderedHtml = $state('');
   let container = $state<HTMLElement | undefined>(undefined);
@@ -337,16 +182,16 @@
   $effect(() => {
     const content = $activeContent;
     // Pre-load KaTeX if content has $ signs
-    if (content.includes('$')) ensureKaTeX();
+    if (content.includes('$')) void ensureKaTeX();
     // Pre-load Mermaid if content has mermaid code blocks
-    if (content.includes('```mermaid')) ensureMermaid();
+    if (hasMermaidFence(content)) void ensureMermaid();
 
     try {
       // Replace page break markers before parsing
-      const preprocessed = normalizeMarkdown(content).replace(pageBreakRe, pageBreakHtml);
+      const preprocessed = preprocessPreviewMarkdown(content);
       let html = marked.parse(preprocessed) as string;
       html = processKaTeX(html);
-      renderedHtml = DOMPurify.sanitize(html);
+      renderedHtml = DOMPurify.sanitize(html, { ADD_ATTR: ['data-mermaid'] });
     } catch {
       renderedHtml = `<p class="render-error">Render error</p>`;
     }
@@ -355,6 +200,9 @@
   // Post-render: copy buttons, emojis, mermaid diagrams
   $effect(() => {
     if (!container || !renderedHtml) return;
+    // Dereference reactive state synchronously so Svelte 5 tracks them
+    const _mReady = mermaidReady;
+    const _mModule = mermaidModule;
     setTimeout(async () => {
       // Copy buttons on code blocks
       container?.querySelectorAll('pre:not([data-copy]):not([data-mermaid])').forEach((pre) => {
@@ -407,17 +255,24 @@
       });
 
       // Mermaid diagrams
-      if (mermaidReady && mermaidModule) {
-        const blocks = container?.querySelectorAll('pre[data-mermaid]:not([data-rendered])') ?? [];
+      const blocks = container?.querySelectorAll('pre[data-mermaid]:not([data-rendered])') ?? [];
+      if (blocks.length > 0 && !_mReady) {
+        void ensureMermaid();
+        return;
+      }
+
+      if (_mReady && _mModule) {
         for (const block of blocks) {
           block.setAttribute('data-rendered', '1');
           const src = block.textContent ?? '';
           try {
             mermaidCounter++;
-            const { svg } = await mermaidModule.render(`mermaid-${mermaidCounter}`, src);
+            const { svg } = await _mModule.render(`mermaid-${mermaidCounter}`, src);
             const div = document.createElement('div');
             div.className = 'mermaid-diagram';
-            div.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } });
+            // Mermaid strict mode already sanitizes diagram content.
+            // DOMPurify's SVG profile strips foreignObject label content.
+            div.innerHTML = svg;
             block.replaceWith(div);
           } catch {
             block.classList.add('mermaid-error');

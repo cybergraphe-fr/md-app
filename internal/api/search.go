@@ -9,11 +9,15 @@ import (
 
 // searchHandler provides full-text search across all stored markdown files.
 type searchHandler struct {
-	store *storage.Storage
+	basePath string
 }
 
-func newSearchHandler(store *storage.Storage) *searchHandler {
-	return &searchHandler{store: store}
+func newSearchHandler(basePath string) *searchHandler {
+	return &searchHandler{basePath: basePath}
+}
+
+func (h *searchHandler) store(r *http.Request) *storage.Storage {
+	return ScopedStorage(h.basePath, r)
 }
 
 // GET /api/search?q=term&path=folder
@@ -34,7 +38,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := h.store.Search(query)
+	results, err := h.store(r).Search(query)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search failed")
 		return

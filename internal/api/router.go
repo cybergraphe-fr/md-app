@@ -12,12 +12,11 @@ import (
 	"md/internal/cache"
 	"md/internal/config"
 	"md/internal/plugins"
-	"md/internal/storage"
 	"md/internal/webhooks"
 )
 
 // NewRouter assembles and returns the full HTTP router.
-func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, version string) http.Handler {
+func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler {
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -32,13 +31,17 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-API-Key", "X-Request-ID"},
 		ExposedHeaders:   []string{"Content-Disposition", "X-Cache"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
 	// Optional OIDC/SSO authentication
 	oidcCfg := LoadOIDCConfig()
 	r.Use(OIDCMiddleware(oidcCfg))
+
+	// Workspace isolation: cookie-based workspace assignment
+	wsRegistry := NewWorkspaceRegistry(cfg.StoragePath)
+	r.Use(WorkspaceMiddleware(wsRegistry))
 
 	// Public endpoints
 	r.Get("/health", handleHealth(version))
@@ -69,13 +72,18 @@ func NewRouter(cfg *config.Config, store *storage.Storage, c *cache.Client, vers
 	r.Group(func(r chi.Router) {
 		r.Use(apiKeyMiddleware(cfg))
 
-		fh := newFilesHandler(store, c)
-		eh := newExportHandler(store, cfg)
+		fh := newFilesHandler(cfg.StoragePath, c)
+		eh := newExportHandler(cfg.StoragePath, cfg)
 		th := newTemplatesHandler()
-		sh := newSearchHandler(store)
-		vh := newVersionsHandler(store)
+		sh := newSearchHandler(cfg.StoragePath)
+		vh := newVersionsHandler(cfg.StoragePath)
 		wh := newWebhookHandler(webhookMgr)
 		ch := newCollabHandler(collabHub)
+		wsh := newWorkspaceHandler(wsRegistry)
+
+		// Workspace endpoints
+		r.Get("/api/workspace", wsh.info)
+		r.Post("/api/workspace/link", wsh.link)
 
 		r.Route("/api/files", func(r chi.Router) {
 			r.Get("/", fh.list)

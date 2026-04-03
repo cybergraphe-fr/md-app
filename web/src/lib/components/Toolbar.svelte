@@ -45,12 +45,14 @@
     SquareCode,
     Quote,
     Link2,
+    RefreshCw,
   } from 'lucide-svelte';
 
   export let onExport: () => void;
   export let onTemplates: () => void;
   export let onSearch: () => void;
   export let onHistory: () => void;
+  export let onSync: () => void;
 
   const viewIcons: Record<string, typeof Columns2> = {
     split: Columns2,
@@ -212,6 +214,10 @@
       {:else}
         <Moon size={15} />
       {/if}
+    </button>
+
+    <button class="btn btn-icon" title="Synchroniser" onclick={onSync}>
+      <RefreshCw size={15} />
     </button>
 
     <button

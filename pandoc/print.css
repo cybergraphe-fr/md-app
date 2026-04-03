@@ -343,6 +343,8 @@ table {
   line-height: 1.45;
   border-top: 2pt solid #1e3a5f;
   border-bottom: 2pt solid #1e3a5f;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 thead {
@@ -372,6 +374,7 @@ th:last-child {
 
 tbody tr {
   break-inside: avoid;
+  page-break-inside: avoid;
   border-bottom: 0.5pt solid #e2e8f0;
 }
 
@@ -515,7 +518,10 @@ math {
 
 .emoji {
   font-style: normal;
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  font-size: 1.15em;
+  line-height: 1;
+  vertical-align: -0.1em;
 }
 
 
@@ -533,7 +539,32 @@ li {
   break-inside: avoid;
 }
 
-/* Keep figures and tables together with their captions */
-figure, table, pre, blockquote {
+/* Keep figures and code/quotes together; tables may split on long content */
+figure, pre, blockquote {
   break-inside: avoid;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   § MERMAID DIAGRAMS (server-side rendered PNG/SVG)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mermaid-diagram {
+  text-align: center;
+  margin: 1.2em 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.mermaid-diagram svg,
+.mermaid-diagram img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  max-height: 21cm;
+  object-fit: contain;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }

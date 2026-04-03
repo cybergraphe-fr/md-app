@@ -26,12 +26,12 @@
     "dompurify": "^3.3.3",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.33",
-    "lucide-svelte": "^0.576.0",
+    "lucide-svelte": "^1.0.1",
     "marked": "^17.0.3",
     "marked-emoji": "^2.0.2",
     "marked-footnote": "^1.4.0",
     "marked-highlight": "^2.2.3",
-    "mermaid": "^11.12.3"
+    "mermaid": "^10.9.5"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.4",

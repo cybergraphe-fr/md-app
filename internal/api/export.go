@@ -23,12 +23,16 @@ import (
 )
 
 type exportHandler struct {
-	store *storage.Storage
-	cfg   *config.Config
+	basePath string
+	cfg      *config.Config
 }
 
-func newExportHandler(store *storage.Storage, cfg *config.Config) *exportHandler {
-	return &exportHandler{store: store, cfg: cfg}
+func newExportHandler(basePath string, cfg *config.Config) *exportHandler {
+	return &exportHandler{basePath: basePath, cfg: cfg}
+}
+
+func (h *exportHandler) store(r *http.Request) *storage.Storage {
+	return ScopedStorage(h.basePath, r)
 }
 
 // ─── Pandoc input format ────────────────────────────────────
@@ -73,6 +77,69 @@ var rePageBreak = regexp.MustCompile(`(?m)^\\(?:newpage|pagebreak)\s*$|^<!--\s*p
 
 func preprocessPageBreaks(content string) string {
 	return rePageBreak.ReplaceAllString(content, pageBreakDiv)
+}
+
+// ─── Mermaid SSR for export ─────────────────────────────────
+// mermaidSSRScript is the path to the Node.js mermaid renderer.
+const mermaidSSRScript = "/app/mmdc/render.mjs"
+
+const (
+	// Keep exported Mermaid diagrams within a single printable page area.
+	mermaidExportImageMaxHeightCM = "21cm"
+	mermaidExportWrapperStyle     = "page-break-inside: avoid; break-inside: avoid; text-align: center; margin: 1.2em 0;"
+	mermaidExportImageStyle       = "display: block; margin: 0 auto; max-width: 100%; width: auto; height: auto; max-height: " + mermaidExportImageMaxHeightCM + "; object-fit: contain; page-break-inside: avoid; break-inside: avoid;"
+)
+
+func buildMermaidExportHTML(dataURI string) string {
+	return "<div class=\"mermaid-diagram\" style=\"" + mermaidExportWrapperStyle +
+		"\"><img src=\"" + dataURI + "\" alt=\"Mermaid diagram\" style=\"" + mermaidExportImageStyle + "\" /></div>"
+}
+
+// renderMermaid calls the mermaid SSR script to convert source to the
+// requested format (svg or png). For png, stdout is base64-encoded binary.
+func renderMermaid(ctx context.Context, source, format string) (string, error) {
+	f, err := os.CreateTemp("", "mermaid-*.mmd")
+	if err != nil {
+		return "", err
+	}
+	name := f.Name()
+	defer os.Remove(name)
+
+	if _, err = f.WriteString(source); err != nil {
+		f.Close()
+		return "", err
+	}
+	f.Close()
+
+	var stdout bytes.Buffer
+	stderr := stderrBufPool.Get().(*bytes.Buffer)
+	stderr.Reset()
+	defer stderrBufPool.Put(stderr)
+
+	cmd := exec.CommandContext(ctx, "node", mermaidSSRScript, name, format)
+	cmd.Stdout = &stdout
+	cmd.Stderr = stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%w — %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.String(), nil
+}
+
+// preprocessMermaidForExport replaces mermaid fences with rendered diagrams.
+// For PDF reliability, we embed rendered PNG data URIs (no JS, no SVG
+// foreignObject support dependency in WeasyPrint).
+// Falls back to a plain code block if SSR fails.
+func preprocessMermaidForExport(ctx context.Context, content string) string {
+	return processMermaidFences(content, func(source string) string {
+		pngB64, err := renderMermaid(ctx, source, "png")
+		if err != nil {
+			slog.Warn("mermaid SSR render failed, keeping as code block", "error", err)
+			return "```\n" + source + "\n```"
+		}
+		dataURI := "data:image/png;base64," + strings.TrimSpace(pngB64)
+		return buildMermaidExportHTML(dataURI)
+	})
 }
 
 // ─── Margin presets ─────────────────────────────────────────
@@ -154,7 +221,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fwc, err := h.store.GetContent(id)
+	fwc, err := h.store(r).GetContent(id)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")
@@ -183,6 +250,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 	// Preprocess page breaks for PDF export
 	content := preprocessMarkdown(fwc.Content)
 	if format == "pdf" {
+		content = preprocessMermaidForExport(r.Context(), content)
 		content = preprocessPageBreaks(content)
 	}
 
@@ -367,6 +435,7 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 
 	rawContent := preprocessMarkdown(body.Content)
 	if format == "pdf" {
+		rawContent = preprocessMermaidForExport(r.Context(), rawContent)
 		rawContent = preprocessPageBreaks(rawContent)
 	}
 

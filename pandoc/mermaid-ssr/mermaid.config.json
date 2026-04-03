@@ -1,0 +1,6 @@
+{
+  "securityLevel": "strict",
+  "flowchart": {
+    "htmlLabels": false
+  }
+}

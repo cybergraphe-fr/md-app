@@ -40,6 +40,20 @@ RUN cd web && npm run build
 
 
 # ─────────────────────────────────────────────────────────────
+# Stage 1b: Build mermaid SSR renderer
+# ─────────────────────────────────────────────────────────────
+# Installs mermaid + happy-dom for server-side SVG rendering.
+# Used by the Go export pipeline to render mermaid diagrams in PDFs.
+FROM node:24-alpine AS mermaid-build
+WORKDIR /mmdc
+COPY pandoc/mermaid-ssr/package.json ./
+# Skip Puppeteer's bundled Chromium download; we'll use Alpine's chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+RUN npm install --omit=dev
+COPY pandoc/mermaid-ssr/render.mjs pandoc/mermaid-ssr/puppeteer.json pandoc/mermaid-ssr/mermaid.config.json ./
+
+
+# ─────────────────────────────────────────────────────────────
 # Stage 2: Build Go binary
 # ─────────────────────────────────────────────────────────────
 # Produces a statically-linked binary at /app/md (~15 MB).
@@ -104,6 +118,9 @@ LABEL org.opencontainers.image.licenses="GPL-3.0"
 #   font-dejavu     → fallback serif/sans/mono fonts for PDF rendering
 #   font-liberation → metric-compatible alternatives to Arial/Times/Courier
 #   ttf-liberation  → TrueType version of Liberation fonts
+#   font-noto-emoji → Noto Emoji glyphs for PDF emoji rendering (WeasyPrint)
+#   nodejs          → Required for mermaid SSR (PDF diagram rendering)
+#   chromium        → Headless browser for mermaid-cli SVG rendering
 RUN apk add --no-cache \
     pandoc \
     py3-weasyprint \
@@ -112,10 +129,44 @@ RUN apk add --no-cache \
     font-dejavu \
     font-liberation \
     ttf-liberation \
+    font-noto-emoji \
+    nodejs \
+    chromium \
     && rm -rf /var/cache/apk/*
 
-# Security: run as non-root user "md" (UID/GID auto-assigned)
-RUN addgroup -S md && adduser -S -G md md
+# Tell Puppeteer to use system-installed Chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Fontconfig: restrict Noto Color Emoji charset to emoji-only codepoints.
+# Without this, fontconfig uses Noto Color Emoji as a general fallback and
+# its oversized keycap-digit glyphs break spacing for regular numbers.
+# The font stays fully accessible by name for .emoji CSS class usage.
+RUN mkdir -p /etc/fonts/conf.d && printf '\
+<?xml version="1.0"?>\n\
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">\n\
+<fontconfig>\n\
+  <match target="scan">\n\
+    <test name="family" compare="contains"><string>Emoji</string></test>\n\
+    <edit name="charset" mode="assign">\n\
+      <charset>\n\
+        <range><int>0x200D</int><int>0x200D</int></range>\n\
+        <range><int>0x2049</int><int>0x2B55</int></range>\n\
+        <range><int>0x2600</int><int>0x27BF</int></range>\n\
+        <range><int>0x2934</int><int>0x2935</int></range>\n\
+        <range><int>0x3030</int><int>0x3030</int></range>\n\
+        <range><int>0x303D</int><int>0x303D</int></range>\n\
+        <range><int>0xFE00</int><int>0xFE0F</int></range>\n\
+        <range><int>0x1F000</int><int>0x1FBFF</int></range>\n\
+        <range><int>0xE0020</int><int>0xE007F</int></range>\n\
+      </charset>\n\
+    </edit>\n\
+  </match>\n\
+</fontconfig>\n' > /etc/fonts/conf.d/99-emoji-charset.conf \
+    && fc-cache -f
+
+# Security: run as non-root user "md" with fixed UID/GID 1000.
+# This matches the default NAS user (pianographe) for bind-mount compatibility.
+RUN addgroup -g 1000 md && adduser -u 1000 -G md -D md
 
 # Create app and data directories with correct ownership
 # /data/files  → user markdown files
@@ -130,6 +181,8 @@ COPY --from=go-build /app/md ./md
 COPY --from=web-build /src/web/dist ./web
 # Pandoc templates + print.css for PDF/DOCX export
 COPY pandoc/ ./pandoc/
+# Mermaid SSR renderer (Node.js) for PDF diagram rendering
+COPY --from=mermaid-build /mmdc ./mmdc
 
 # Switch to non-root user for all runtime operations
 USER md

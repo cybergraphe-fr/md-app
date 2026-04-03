@@ -11,11 +11,15 @@ import (
 
 // versionsHandler provides version history endpoints for files.
 type versionsHandler struct {
-	store *storage.Storage
+	basePath string
 }
 
-func newVersionsHandler(store *storage.Storage) *versionsHandler {
-	return &versionsHandler{store: store}
+func newVersionsHandler(basePath string) *versionsHandler {
+	return &versionsHandler{basePath: basePath}
+}
+
+func (h *versionsHandler) store(r *http.Request) *storage.Storage {
+	return ScopedStorage(h.basePath, r)
 }
 
 // GET /api/files/{id}/versions — list all versions for a file (newest first).
@@ -23,7 +27,7 @@ func (h *versionsHandler) list(w http.ResponseWriter, r *http.Request) {
 	fileID := chi.URLParam(r, "id")
 
 	// Ensure the file exists.
-	if _, err := h.store.GetMeta(fileID); err != nil {
+	if _, err := h.store(r).GetMeta(fileID); err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")
 			return
@@ -33,7 +37,7 @@ func (h *versionsHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	versions, err := h.store.ListVersions(fileID)
+	versions, err := h.store(r).ListVersions(fileID)
 	if err != nil {
 		slog.Error("versions list", "file_id", fileID, "error", err)
 		writeError(w, http.StatusInternalServerError, "could not list versions")
@@ -52,7 +56,7 @@ func (h *versionsHandler) get(w http.ResponseWriter, r *http.Request) {
 	fileID := chi.URLParam(r, "id")
 	vid := chi.URLParam(r, "vid")
 
-	vc, err := h.store.GetVersion(fileID, vid)
+	vc, err := h.store(r).GetVersion(fileID, vid)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "version not found")
@@ -71,7 +75,7 @@ func (h *versionsHandler) restore(w http.ResponseWriter, r *http.Request) {
 	fileID := chi.URLParam(r, "id")
 	vid := chi.URLParam(r, "vid")
 
-	file, err := h.store.RestoreVersion(fileID, vid)
+	file, err := h.store(r).RestoreVersion(fileID, vid)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file or version not found")

@@ -4,6 +4,17 @@ set -uo pipefail
 BASE="https://md.cybergraphe.fr"
 PASS=0
 FAIL=0
+COOKIE_JAR=$(mktemp)
+
+cleanup() {
+  rm -f "$COOKIE_JAR"
+}
+trap cleanup EXIT
+
+# Keep a stable workspace across all requests in this run.
+curl() {
+  command curl -b "$COOKIE_JAR" -c "$COOKIE_JAR" "$@"
+}
 
 check() {
   local name="$1" 
@@ -226,6 +237,16 @@ SW_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE/sw.js" 2>/dev/null || e
 # 32. Mermaid in JS bundle
 if [[ -n "$JS_URL" ]]; then
   [[ "$JS_BODY" == *"mermaid"* || "$JS_BODY" == *"Mermaid"* ]] && check "Mermaid in bundle" "PASS" || check "Mermaid in bundle" "FAIL"
+fi
+
+# 32b. Mermaid backend render placeholder
+MERMAID_RENDER=$(curl -sf -X POST "$BASE/api/files/render" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"```mermaid\ngraph TD\nA-->B\n```"}' 2>/dev/null || echo "")
+if [[ "$MERMAID_RENDER" == *'mermaid-block'* && ( "$MERMAID_RENDER" == *'data-mermaid=\"true\"'* || "$MERMAID_RENDER" == *'data-mermaid="true"'* ) ]]; then
+  check "Mermaid render placeholder" "PASS"
+else
+  check "Mermaid render placeholder" "FAIL: $MERMAID_RENDER"
 fi
 
 # 33. KaTeX in bundle

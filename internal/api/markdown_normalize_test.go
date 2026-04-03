@@ -1,16 +1,36 @@
 package api
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
 
-func TestPreprocessMarkdown_InlineHeadings(t *testing.T) {
-	in := "Intro paragraph. ## 4. Go-To-Market\nMore text"
+func TestPreprocessMarkdown_InlineHeadings_AllLevels(t *testing.T) {
+	for level := 1; level <= 6; level++ {
+		hashes := strings.Repeat("#", level)
+		in := fmt.Sprintf("Intro paragraph. %s Heading L%d\nMore text", hashes, level)
+		out := preprocessMarkdown(in)
+
+		expected := fmt.Sprintf("\n\n%s Heading L%d", hashes, level)
+		if !strings.Contains(out, expected) {
+			t.Fatalf("inline heading level %d not normalized as expected:\n%s", level, out)
+		}
+	}
+}
+
+func TestPreprocessMarkdown_TightATXHeadings(t *testing.T) {
+	in := "##Heading 2\n###Heading 3\nText ##Heading Inline"
 	out := preprocessMarkdown(in)
 
-	if !strings.Contains(out, "\n\n## 4. Go-To-Market") {
-		t.Fatalf("inline heading not normalized:\n%s", out)
+	if !strings.Contains(out, "## Heading 2") {
+		t.Fatalf("tight h2 heading not normalized:\n%s", out)
+	}
+	if !strings.Contains(out, "### Heading 3") {
+		t.Fatalf("tight h3 heading not normalized:\n%s", out)
+	}
+	if !strings.Contains(out, "\n\n## Heading Inline") {
+		t.Fatalf("tight inline heading not normalized:\n%s", out)
 	}
 }
 
@@ -142,5 +162,35 @@ func TestPreprocessMarkdown_StandaloneLeadInBeforeList(t *testing.T) {
 
 	if !strings.Contains(out, "- Parent\n\nOffre Enterprise\n\n- Setup sur-mesure") {
 		t.Fatalf("standalone lead-in was not isolated from list blocks:\n%s", out)
+	}
+}
+
+func TestRenderMarkdown_ReplacesMermaidFenceWithRenderableBlock(t *testing.T) {
+	in := "```mermaid\ngraph TD\nA-->B\n```"
+	html, err := renderMarkdown(in)
+	if err != nil {
+		t.Fatalf("renderMarkdown error: %v", err)
+	}
+
+	if !strings.Contains(html, `class="mermaid-block"`) || !strings.Contains(html, `data-mermaid="true"`) {
+		t.Fatalf("expected Mermaid placeholder block, got:\n%s", html)
+	}
+	if strings.Contains(html, "<code") {
+		t.Fatalf("expected Mermaid fence to bypass regular code rendering, got:\n%s", html)
+	}
+	if !strings.Contains(html, "graph TD") {
+		t.Fatalf("expected Mermaid source to remain in placeholder, got:\n%s", html)
+	}
+}
+
+func TestRenderMarkdown_MermaidPreservesHtmlLikeLabelsAsText(t *testing.T) {
+	in := "```mermaid\ngraph TD\nA -->|foo<br/>bar| B\n```"
+	html, err := renderMarkdown(in)
+	if err != nil {
+		t.Fatalf("renderMarkdown error: %v", err)
+	}
+
+	if !strings.Contains(html, "foo&lt;br/&gt;bar") {
+		t.Fatalf("expected Mermaid HTML-like labels to stay escaped in source block, got:\n%s", html)
 	}
 }

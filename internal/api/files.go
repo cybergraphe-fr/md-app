@@ -57,6 +57,7 @@ var bufPool = sync.Pool{
 // renderMarkdown converts markdown content to an HTML string.
 func renderMarkdown(content string) (string, error) {
 	content = preprocessMarkdown(content)
+	content = replaceMermaidFences(content)
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
@@ -66,20 +67,120 @@ func renderMarkdown(content string) (string, error) {
 	return buf.String(), nil
 }
 
+// processMermaidFences parses mermaid code fences and calls handler for each
+// block's source content.  The handler's return value replaces the fence in
+// the output.  Non-mermaid content is passed through unchanged.
+func processMermaidFences(content string, handler func(source string) string) string {
+	if !strings.Contains(strings.ToLower(content), "mermaid") {
+		return content
+	}
+
+	lines := strings.Split(content, "\n")
+	out := make([]string, 0, len(lines))
+	var blockLines []string
+	inMermaid := false
+	var fenceChar byte
+	var fenceLen int
+
+	parseFence := func(line string) (bool, byte, int, string) {
+		trimmedLeft := strings.TrimLeft(line, " ")
+		indent := len(line) - len(trimmedLeft)
+		if indent > 3 || len(trimmedLeft) < 3 {
+			return false, 0, 0, ""
+		}
+		if !strings.HasPrefix(trimmedLeft, "```") && !strings.HasPrefix(trimmedLeft, "~~~") {
+			return false, 0, 0, ""
+		}
+		ch := trimmedLeft[0]
+		count := 0
+		for count < len(trimmedLeft) && trimmedLeft[count] == ch {
+			count++
+		}
+		if count < 3 {
+			return false, 0, 0, ""
+		}
+		rest := strings.TrimSpace(trimmedLeft[count:])
+		if rest == "" {
+			return true, ch, count, ""
+		}
+		return true, ch, count, strings.ToLower(strings.Fields(rest)[0])
+	}
+
+	isClosingFence := func(line string, ch byte, minLen int) bool {
+		trimmedLeft := strings.TrimLeft(line, " ")
+		indent := len(line) - len(trimmedLeft)
+		if indent > 3 || len(trimmedLeft) < minLen {
+			return false
+		}
+		count := 0
+		for count < len(trimmedLeft) && trimmedLeft[count] == ch {
+			count++
+		}
+		if count < minLen {
+			return false
+		}
+		return strings.TrimSpace(trimmedLeft[count:]) == ""
+	}
+
+	flushMermaid := func() {
+		out = append(out, handler(strings.Join(blockLines, "\n")))
+		blockLines = nil
+	}
+
+	for _, line := range lines {
+		if inMermaid {
+			if isClosingFence(line, fenceChar, fenceLen) {
+				flushMermaid()
+				inMermaid = false
+				continue
+			}
+			blockLines = append(blockLines, line)
+			continue
+		}
+
+		if ok, ch, count, lang := parseFence(line); ok && lang == "mermaid" {
+			inMermaid = true
+			fenceChar = ch
+			fenceLen = count
+			blockLines = nil
+			continue
+		}
+
+		out = append(out, line)
+	}
+
+	if inMermaid {
+		flushMermaid()
+	}
+
+	return strings.Join(out, "\n")
+}
+
+func replaceMermaidFences(content string) string {
+	return processMermaidFences(content, func(source string) string {
+		return `<pre class="mermaid-block" data-mermaid="true">` + template.HTMLEscapeString(source) + `</pre>`
+	})
+}
+
 // ---- Handlers ----
 
 type filesHandler struct {
-	store *storage.Storage
-	cache *cache.Client
+	basePath string
+	cache    *cache.Client
 }
 
-func newFilesHandler(store *storage.Storage, c *cache.Client) *filesHandler {
-	return &filesHandler{store: store, cache: c}
+func newFilesHandler(basePath string, c *cache.Client) *filesHandler {
+	return &filesHandler{basePath: basePath, cache: c}
+}
+
+// store returns a workspace-scoped storage for the current request.
+func (h *filesHandler) store(r *http.Request) *storage.Storage {
+	return ScopedStorage(h.basePath, r)
 }
 
 // GET /api/files
 func (h *filesHandler) list(w http.ResponseWriter, r *http.Request) {
-	files, err := h.store.List()
+	files, err := h.store(r).List()
 	if err != nil {
 		slog.Error("list files", "error", err)
 		writeError(w, http.StatusInternalServerError, "could not list files")
@@ -102,7 +203,7 @@ func (h *filesHandler) create(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(body.Name) == "" {
 		body.Name = "untitled"
 	}
-	f, err := h.store.Create(body.Name, body.Path, body.Content)
+	f, err := h.store(r).Create(body.Name, body.Path, body.Content)
 	if err != nil {
 		slog.Error("create file", "error", err)
 		writeError(w, http.StatusInternalServerError, "could not create file")
@@ -114,7 +215,7 @@ func (h *filesHandler) create(w http.ResponseWriter, r *http.Request) {
 // GET /api/files/{id}
 func (h *filesHandler) get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	fwc, err := h.store.GetContent(id)
+	fwc, err := h.store(r).GetContent(id)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")
@@ -139,11 +240,12 @@ func (h *filesHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-version: save current content before overwriting.
-	if current, err := h.store.GetContent(id); err == nil {
-		_, _ = h.store.SaveVersion(id, current.Content, "auto-save")
+	st := h.store(r)
+	if current, err := st.GetContent(id); err == nil {
+		_, _ = st.SaveVersion(id, current.Content, "auto-save")
 	}
 
-	f, err := h.store.Update(id, body.Name, body.Content)
+	f, err := st.Update(id, body.Name, body.Content)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")
@@ -163,7 +265,7 @@ func (h *filesHandler) update(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/files/{id}
 func (h *filesHandler) delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.store.Delete(id); err != nil {
+	if err := h.store(r).Delete(id); err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")
 			return
@@ -195,7 +297,7 @@ func (h *filesHandler) render(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fwc, err := h.store.GetContent(id)
+	fwc, err := h.store(r).GetContent(id)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")
@@ -259,7 +361,7 @@ func (h *filesHandler) importFile(w http.ResponseWriter, r *http.Request) {
 	name = strings.TrimSuffix(name, ".txt")
 	name = strings.TrimSuffix(name, ".html")
 
-	f, err := h.store.ImportReader(name, file)
+	f, err := h.store(r).ImportReader(name, file)
 	if err != nil {
 		slog.Error("import file", "error", err)
 		writeError(w, http.StatusInternalServerError, "could not import file")
@@ -303,19 +405,54 @@ var htmlExportTmpl = template.Must(template.New("export").Parse(`<!DOCTYPE html>
   img { max-width: 100%; height: auto; border-radius: 6px; margin: 1rem 0; }
   hr { border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
   .task-list-item { list-style: none; margin-left: -1.75rem; padding-left: 1.75rem; }
+	.mermaid-block { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; white-space: pre; }
+	.mermaid-diagram { border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; margin: 1.5rem 0; padding: 1rem; overflow-x: auto; }
+	.mermaid-diagram svg { max-width: 100%; height: auto; }
+	.mermaid-error { border: 1px solid #dc2626; color: #dc2626; border-radius: 8px; padding: 0.75rem; }
   @media print { body { padding: 0; max-width: none; }
                  pre { break-inside: avoid; } }
 </style>
 </head>
 <body>
 {{.Body}}
+<script type="module">
+	const blocks = Array.from(document.querySelectorAll('pre[data-mermaid]'));
+	if (blocks.length > 0) {
+		try {
+			const mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')).default;
+			mermaid.initialize({
+				startOnLoad: false,
+				theme: 'default',
+				securityLevel: 'strict',
+				flowchart: { htmlLabels: false },
+			});
+			let counter = 0;
+			for (const block of blocks) {
+				const src = block.textContent || '';
+				try {
+					counter += 1;
+					  const { svg } = await mermaid.render('export-mermaid-' + counter, src);
+					const div = document.createElement('div');
+					div.className = 'mermaid-diagram';
+					div.innerHTML = svg;
+					block.replaceWith(div);
+				} catch (error) {
+					block.classList.add('mermaid-error');
+					console.error('Mermaid export render failed', error);
+				}
+			}
+		} catch (error) {
+			console.error('Mermaid export bootstrap failed', error);
+		}
+	}
+</script>
 </body>
 </html>`))
 
 // GET /api/files/{id}/export/html
 func (h *filesHandler) exportHTML(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	fwc, err := h.store.GetContent(id)
+	fwc, err := h.store(r).GetContent(id)
 	if err != nil {
 		if err == storage.ErrNotFound {
 			writeError(w, http.StatusNotFound, "file not found")

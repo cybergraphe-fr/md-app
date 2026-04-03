@@ -71,6 +71,7 @@ export interface PluginInfo {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
     method,
+    credentials: 'include',
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -129,7 +130,7 @@ export const api = {
   async importFile(file: File): Promise<FileWithContent> {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${BASE}/files/import`, { method: 'POST', body: form });
+    const res = await fetch(`${BASE}/files/import`, { method: 'POST', credentials: 'include', body: form });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error ?? `HTTP ${res.status}`);
@@ -200,5 +201,14 @@ export const api = {
   // ---- Auth ----
   authMe(): Promise<{ sub: string; name: string; email: string }> {
     return request('GET', '/auth/me');
+  },
+
+  // ---- Workspace ----
+  getWorkspace(): Promise<{ workspace_id: string; sync_code: string; created_at: string }> {
+    return request('GET', '/workspace');
+  },
+
+  linkWorkspace(code: string): Promise<{ workspace_id: string; sync_code: string; message: string }> {
+    return request('POST', '/workspace/link', { code });
   },
 };

@@ -5,11 +5,13 @@ import (
 	"strings"
 )
 
-var reInlineHeading = regexp.MustCompile(`\s+(#{1,6}\s+)`)
+var reInlineHeading = regexp.MustCompile(`[ \t]+(#{1,6}[ \t]+)`)
+var reTightAtxHeading = regexp.MustCompile(`^(\s{0,3}#{1,6})([^\s#])`)
+var reInlineTightAtxHeading = regexp.MustCompile(`([ \t])(#{2,6})([^\s#])`)
 var reInlineBullet = regexp.MustCompile(`\s+•\s+`)
 var reInlineSubBullet = regexp.MustCompile(`\s+◦\s+`)
 var reInlineAsteriskBullet = regexp.MustCompile(`\s+\*\s+`)
-var reIndentedHeading = regexp.MustCompile(`^\s{4,}(#{1,6}\s+)`)
+var reIndentedHeading = regexp.MustCompile(`^[ \t]{4,}(#{1,6}[ \t]+)`)
 var reTableSep = regexp.MustCompile(`^[\s|:\-]+$`)
 var reListItem = regexp.MustCompile(`^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)`)
 
@@ -139,6 +141,7 @@ func preprocessMarkdown(content string) string {
 		}
 
 		line = reIndentedHeading.ReplaceAllString(line, "$1")
+		line = reTightAtxHeading.ReplaceAllString(line, "$1 $2")
 
 		trimmed = strings.TrimSpace(line)
 		switch {
@@ -155,8 +158,11 @@ func preprocessMarkdown(content string) string {
 			}
 		}
 
-		if !strings.HasPrefix(strings.TrimLeft(line, " \t"), "#") && reInlineHeading.MatchString(line) {
-			line = reInlineHeading.ReplaceAllString(line, "\n\n$1")
+		if !strings.HasPrefix(strings.TrimLeft(line, " \t"), "#") {
+			line = reInlineTightAtxHeading.ReplaceAllString(line, "$1$2 $3")
+			if reInlineHeading.MatchString(line) {
+				line = reInlineHeading.ReplaceAllString(line, "\n\n$1")
+			}
 		}
 
 		if !strings.HasPrefix(strings.TrimLeft(line, " \t"), "-") &&

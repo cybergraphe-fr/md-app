@@ -55,7 +55,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 
 | Layer | Technology | Version |
 | --- | --- | --- |
-| Backend | Go | 1.25 |
+| Backend | Go | 1.25 (toolchain pinned to 1.25.8) |
 | HTTP router | chi | v5 |
 | Markdown (server) | goldmark | v1.7 |
 | Cache | Redis | 7.4 |
@@ -311,6 +311,7 @@ apps/cybergraphe/md/           ← (rename to "md" in production)
 │   │   ├── app.css         ← Global styles + prose + CodeMirror overrides
 │   │   └── lib/
 │   │       ├── api.ts      ← Typed API client
+│   │       ├── markdown.ts ← Shared preview markdown normalization pipeline
 │   │       ├── stores/
 │   │       │   └── files.ts ← Svelte stores + async actions
 │   │       ├── components/
@@ -376,11 +377,25 @@ docker build \
 ### Run tests
 
 ```bash
-# Go tests
-go test -v ./internal/...
+# Backend (same spirit as CI)
+go vet ./...
+go test ./...
+go test -race ./...
+/home/$USER/go/bin/govulncheck ./...
 
 # Frontend
-cd web && npm test
+cd web
+npm test
+npx svelte-check --tsconfig ./tsconfig.json
+npm run build
+
+# Runtime E2E (production endpoint)
+cd ..
+bash tests/e2e.sh
+
+# Optional CI parity for race+coverage command (containerized toolchain)
+docker run --rm -v "$PWD":/src -w /src golang:1.25-alpine \
+  sh -c "apk add --no-cache build-base git >/dev/null && go mod download && go test -race -coverprofile=coverage.txt ./..."
 ```
 
 ---
@@ -390,7 +405,7 @@ cd web && npm test
 - [x] **Templates** – 8 built-in starter templates (blog post, meeting notes, RFC, README, changelog, tutorial, report, letter) with picker UI
 - [x] **Search** – full-text search across all documents (name + content, Ctrl+K shortcut)
 - [x] **Version history** – automatic versioning on every save, preview & one-click restore
-- [x] **Mermaid diagrams** – lazy-loaded live diagram rendering in preview (dark theme)
+- [x] **Mermaid diagrams** – lazy-loaded live diagram rendering in preview plus standalone HTML export rendering
 - [x] **Math (KaTeX)** – block (`$$…$$`) and inline (`$…$`) LaTeX equation rendering
 - [x] **Offline mode** – full PWA with service worker, network-first API / cache-first assets
 - [x] **Collaborative editing** – SSE-based real-time co-editing with presence tracking

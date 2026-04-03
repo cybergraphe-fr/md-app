@@ -9,6 +9,8 @@
   import SearchModal from '$lib/components/SearchModal.svelte';
   import VersionHistory from '$lib/components/VersionHistory.svelte';
   import Particles from '$lib/components/Particles.svelte';
+  import CookieConsent from '$lib/components/CookieConsent.svelte';
+  import WorkspaceSync from '$lib/components/WorkspaceSync.svelte';
   import { loadFiles, initTheme, viewMode, error, theme, sidebarOpen, toggleSidebar } from '$lib/stores/files';
   import { AlertCircle, X } from 'lucide-svelte';
 
@@ -16,6 +18,7 @@
   let templatesOpen = $state(false);
   let searchOpen = $state(false);
   let historyOpen = $state(false);
+  let syncOpen = $state(false);
 
   /* ─── Split pane resizer ─── */
   let splitRatio = $state(0.5);
@@ -78,6 +81,7 @@
         onTemplates={() => (templatesOpen = true)}
         onSearch={() => (searchOpen = true)}
         onHistory={() => (historyOpen = true)}
+        onSync={() => (syncOpen = true)}
       />
 
       <!-- Error banner -->
@@ -151,6 +155,12 @@
 
   <!-- Version history -->
   <VersionHistory isOpen={historyOpen} onClose={() => (historyOpen = false)} />
+
+  <!-- Workspace sync modal -->
+  <WorkspaceSync bind:isOpen={syncOpen} />
+
+  <!-- Cookie consent banner -->
+  <CookieConsent />
 </div>
 
 <style>

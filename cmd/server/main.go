@@ -13,7 +13,6 @@ import (
 	"md/internal/api"
 	"md/internal/cache"
 	"md/internal/config"
-	"md/internal/storage"
 )
 
 var (
@@ -59,11 +58,12 @@ func main() {
 		}
 	}
 
-	// File storage
-	fileStore := storage.New(cfg.StoragePath)
+	// Migrate legacy flat-file data into workspace layout (one-shot)
+	wsRegistry := api.NewWorkspaceRegistry(cfg.StoragePath)
+	api.MigrateLegacyData(cfg.StoragePath, wsRegistry)
 
 	// HTTP router
-	router := api.NewRouter(cfg, fileStore, redisClient, Version)
+	router := api.NewRouter(cfg, redisClient, Version)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
