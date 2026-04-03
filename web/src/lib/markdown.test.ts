@@ -129,4 +129,14 @@ describe('Markdown normalization for preview', () => {
     expect(preprocessed).toContain('pagebreak-indicator');
     expect(preprocessed).not.toContain('\\newpage');
   });
+
+  it('keeps h2 parsed after page break marker', () => {
+    const content = 'Intro\n\\newpage\n## 🗺️ LA BOUCLE';
+    const html = renderPreview(content);
+
+    expect(html).toContain('pagebreak-indicator');
+    expect(html).toContain('<h2');
+    expect(html).toContain('LA BOUCLE');
+    expect(html).not.toContain('## 🗺️ LA BOUCLE');
+  });
 });

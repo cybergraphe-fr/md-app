@@ -180,5 +180,7 @@ export const PAGE_BREAK_RE = /^(\\(?:newpage|pagebreak)\s*$|<!--\s*pagebreak\s*-
 export const PAGE_BREAK_INDICATOR_HTML = '<div class="pagebreak-indicator" aria-label="Page break"><span>⸻ Saut de page ⸻</span></div>';
 
 export function preprocessPreviewMarkdown(content: string): string {
-  return normalizeMarkdown(content).replace(PAGE_BREAK_RE, PAGE_BREAK_INDICATOR_HTML);
+  // Keep a blank line around the injected HTML block so the next markdown line
+  // (especially ATX headings) is parsed as markdown, not as raw HTML continuation.
+  return normalizeMarkdown(content).replace(PAGE_BREAK_RE, `\n${PAGE_BREAK_INDICATOR_HTML}\n`);
 }
