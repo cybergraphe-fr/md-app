@@ -68,6 +68,35 @@ export interface PluginInfo {
   description: string;
 }
 
+export interface PDFExportOptions {
+  margin?: string;
+  header?: string;
+  footer?: string;
+}
+
+function normalizePDFOptions(options?: string | PDFExportOptions): PDFExportOptions | undefined {
+  if (!options) return undefined;
+  if (typeof options === 'string') return { margin: options };
+  return options;
+}
+
+function buildPDFExportQuery(options?: string | PDFExportOptions): string {
+  const normalized = normalizePDFOptions(options);
+  if (!normalized) return '';
+
+  const params = new URLSearchParams();
+  const margin = normalized.margin?.trim();
+  const header = normalized.header?.trim();
+  const footer = normalized.footer?.trim();
+
+  if (margin) params.set('margin', margin);
+  if (header) params.set('header', header.slice(0, 120));
+  if (footer) params.set('footer', footer.slice(0, 120));
+
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(BASE + path, {
     method,
@@ -117,13 +146,13 @@ export const api = {
     return `${BASE}/files/${id}/export/html`;
   },
 
-  exportFormat(id: string, format: string, margin?: string): string {
-    const qs = margin ? `?margin=${encodeURIComponent(margin)}` : '';
+  exportFormat(id: string, format: string, options?: string | PDFExportOptions): string {
+    const qs = format === 'pdf' ? buildPDFExportQuery(options) : '';
     return `${BASE}/files/${id}/export/${format}${qs}`;
   },
 
-  exportRawFormat(format: string, margin?: string): string {
-    const qs = margin ? `?margin=${encodeURIComponent(margin)}` : '';
+  exportRawFormat(format: string, options?: string | PDFExportOptions): string {
+    const qs = format === 'pdf' ? buildPDFExportQuery(options) : '';
     return `${BASE}/export/raw/${format}${qs}`;
   },
 

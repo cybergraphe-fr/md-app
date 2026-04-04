@@ -1,6 +1,6 @@
 <script lang="ts">
   import { activeFileId, activeName, activeContent } from '$lib/stores/files';
-  import { api } from '$lib/api';
+  import { api, type PDFExportOptions } from '$lib/api';
   import { X, Download, Loader } from 'lucide-svelte';
   import DOMPurify from 'dompurify';
   import { get } from 'svelte/store';
@@ -25,6 +25,10 @@
   let exporting: string | null = $state(null);
   let exportError: string | null = $state(null);
   let pdfMargin: string = $state('standard');
+  let pdfHeader: string = $state('');
+  let pdfFooter: string = $state('');
+
+  const maxDecorLength = 120;
 
   const marginOptions = [
     { id: 'standard', label: 'Standard', desc: '2.5 cm' },
@@ -39,6 +43,14 @@
     a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  function buildPDFOptions(): PDFExportOptions {
+    return {
+      margin: pdfMargin,
+      header: pdfHeader.trim(),
+      footer: pdfFooter.trim(),
+    };
   }
 
   async function handleExport(formatId: string): Promise<void> {
@@ -67,8 +79,8 @@
           a.download = `${name}${ext}`;
           a.click();
         } else {
-          const margin = formatId === 'pdf' ? pdfMargin : undefined;
-          const res = await fetch(api.exportFormat(id, formatId, margin), { method: 'POST' });
+          const pdfOptions = formatId === 'pdf' ? buildPDFOptions() : undefined;
+          const res = await fetch(api.exportFormat(id, formatId, pdfOptions), { method: 'POST' });
           if (!res.ok) {
             const err = await res.json().catch(() => ({ error: res.statusText }));
             throw new Error(err.error ?? `Export failed: HTTP ${res.status}`);
@@ -86,8 +98,8 @@
           ], { type: 'text/html' });
           downloadBlob(blob, `${name}${ext}`);
         } else {
-          const margin = formatId === 'pdf' ? pdfMargin : undefined;
-          const res = await fetch(api.exportRawFormat(formatId, margin), {
+          const pdfOptions = formatId === 'pdf' ? buildPDFOptions() : undefined;
+          const res = await fetch(api.exportRawFormat(formatId, pdfOptions), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content, name }),
@@ -174,6 +186,41 @@
         </div>
       </div>
 
+      <div class="pdf-decor">
+        <div class="pdf-decor-head">
+          <span class="margin-label">PDF header & footer</span>
+          <span class="decor-meta">optional, max {maxDecorLength} chars</span>
+        </div>
+
+        <div class="pdf-decor-grid">
+          <label class="decor-field" for="pdf-header-input">
+            <span class="decor-label">Header</span>
+            <input
+              id="pdf-header-input"
+              class="decor-input"
+              type="text"
+              maxlength={maxDecorLength}
+              bind:value={pdfHeader}
+              placeholder="Example: Confidential report"
+            />
+          </label>
+
+          <label class="decor-field" for="pdf-footer-input">
+            <span class="decor-label">Footer</span>
+            <input
+              id="pdf-footer-input"
+              class="decor-input"
+              type="text"
+              maxlength={maxDecorLength}
+              bind:value={pdfFooter}
+              placeholder="Example: Internal use only"
+            />
+          </label>
+        </div>
+
+        <p class="decor-note">Page numbering is automatic in PDF: current/total (example: 9/14).</p>
+      </div>
+
       <div class="formats-grid">
         {#each formats as fmt}
           <button
@@ -224,7 +271,7 @@
   }
 
   .modal {
-    background: var(--bg-surface);
+    background: var(--bg-editor);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--border);
@@ -299,6 +346,7 @@
     gap: 0.75rem;
     padding: 0.6rem 1.5rem;
     border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
   }
 
   .margin-label {
@@ -326,7 +374,7 @@
     padding: 0.35rem 0.5rem;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
-    background: transparent;
+    background: var(--bg-surface);
     cursor: pointer;
     transition: all 0.15s;
     font-family: var(--font-ui);
@@ -346,6 +394,7 @@
     flex-direction: column;
     padding: 0.75rem 1rem;
     gap: 0.3rem;
+    background: var(--bg-surface);
   }
 
   .format-card {
@@ -355,7 +404,7 @@
     padding: 0.65rem 0.9rem;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius);
-    background: transparent;
+    background: var(--bg-editor);
     cursor: pointer;
     transition: all 0.15s;
     text-align: left;
@@ -391,7 +440,115 @@
 
   .format-desc {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
+  }
+
+  .pdf-decor {
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-editor);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .pdf-decor-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .decor-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+  }
+
+  .pdf-decor-grid {
+    display: grid;
+    gap: 0.55rem;
+    grid-template-columns: 1fr;
+  }
+
+  .decor-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .decor-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+  }
+
+  .decor-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-height: 34px;
+    padding: 0.45rem 0.55rem;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  }
+
+  .decor-input::placeholder {
+    color: var(--text-secondary);
+  }
+
+  .decor-input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+    background: var(--bg-editor);
+  }
+
+  .decor-note {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+  }
+
+  :global([data-theme='light']) .modal {
+    background: rgba(255, 255, 255, 0.97);
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  }
+
+  :global([data-theme='light']) .modal-backdrop {
+    background: rgba(15, 23, 42, 0.34);
+  }
+
+  :global([data-theme='light']) .margin-selector,
+  :global([data-theme='light']) .formats-grid,
+  :global([data-theme='light']) .pdf-decor {
+    background: rgba(248, 250, 252, 0.9);
+  }
+
+  :global([data-theme='light']) .margin-btn,
+  :global([data-theme='light']) .format-card,
+  :global([data-theme='light']) .decor-input {
+    border-color: rgba(15, 23, 42, 0.16);
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  :global([data-theme='light']) .format-card:hover:not(:disabled) {
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.2);
+  }
+
+  :global([data-theme='light']) .format-desc,
+  :global([data-theme='light']) .decor-meta,
+  :global([data-theme='light']) .decor-note,
+  :global([data-theme='light']) .margin-label,
+  :global([data-theme='light']) .modal-subtitle {
+    color: #475569;
   }
 
   :global(.format-dl-icon) { color: var(--text-muted); flex-shrink: 0; transition: color 0.15s; }

@@ -150,6 +150,15 @@ type pdfMargins struct {
 	Left   string
 }
 
+type pdfPageDecor struct {
+	Header string
+	Footer string
+}
+
+const maxPDFDecorLength = 120
+
+var cssContentEscaper = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
+
 var marginPresets = map[string]pdfMargins{
 	"standard": {"2.2cm", "2.5cm", "2.5cm", "2.5cm"},
 	"narrow":   {"1.5cm", "1.5cm", "1.5cm", "1.5cm"},
@@ -183,12 +192,83 @@ func asCM(v string) string {
 	return "2.5cm"
 }
 
-// marginOverrideCSS generates a <style> block that overrides @page margins.
-func marginOverrideCSS(m pdfMargins) string {
-	return fmt.Sprintf(
-		"<style>@page { margin: %s %s %s %s; } @page:first { margin-top: %s; }</style>",
-		m.Top, m.Right, m.Bottom, m.Left, m.Top,
-	)
+func parsePageDecor(r *http.Request) pdfPageDecor {
+	return pdfPageDecor{
+		Header: sanitizePDFDecor(r.URL.Query().Get("header")),
+		Footer: sanitizePDFDecor(r.URL.Query().Get("footer")),
+	}
+}
+
+func sanitizePDFDecor(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	var normalized strings.Builder
+	normalized.Grow(len(trimmed))
+	for _, ch := range trimmed {
+		switch ch {
+		case '\n', '\r', '\t':
+			normalized.WriteRune(' ')
+		default:
+			if ch >= 32 && ch != 127 {
+				normalized.WriteRune(ch)
+			}
+		}
+	}
+
+	cleaned := strings.Join(strings.Fields(normalized.String()), " ")
+	if cleaned == "" {
+		return ""
+	}
+
+	runes := []rune(cleaned)
+	if len(runes) > maxPDFDecorLength {
+		return string(runes[:maxPDFDecorLength])
+	}
+	return cleaned
+}
+
+func cssContentString(value string) string {
+	return `"` + cssContentEscaper.Replace(value) + `"`
+}
+
+// pageOverridesCSS generates a <style> block for custom PDF margins/header/footer.
+func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
+	overrideMargins := m != marginPresets["standard"]
+	overrideHeader := decor.Header != ""
+	overrideFooter := decor.Footer != ""
+
+	if !overrideMargins && !overrideHeader && !overrideFooter {
+		return ""
+	}
+
+	var css strings.Builder
+	css.WriteString("<style>@page {")
+	if overrideMargins {
+		fmt.Fprintf(&css, " margin: %s %s %s %s;", m.Top, m.Right, m.Bottom, m.Left)
+	}
+	if overrideHeader {
+		fmt.Fprintf(&css,
+			" @top-center { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
+			cssContentString(decor.Header),
+		)
+	}
+	if overrideFooter {
+		fmt.Fprintf(&css,
+			" @bottom-left { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
+			cssContentString(decor.Footer),
+		)
+	}
+	css.WriteString(" }")
+
+	if overrideMargins {
+		fmt.Fprintf(&css, " @page:first { margin-top: %s; }", m.Top)
+	}
+
+	css.WriteString("</style>")
+	return css.String()
 }
 
 // ─── Supported export formats ───────────────────────────────
@@ -265,8 +345,9 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 	// PDF: two-step pipeline (Pandoc → HTML → WeasyPrint → PDF)
 	if format == "pdf" {
 		margins := parseMargins(r)
+		decor := parsePageDecor(r)
 		htmlFile := filepath.Join(tmpDir, "output.html")
-		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins); err != nil {
+		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins, decor); err != nil {
 			slog.Error("pdf export failed", "file", fwc.Name, "error", err)
 			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
 			return
@@ -333,13 +414,13 @@ func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFi
 //
 //  1. Pandoc converts Markdown → self-contained HTML5 (print.css embedded
 //     inline via --embed-resources, syntax highlighted via zenburn).
-//  2. If custom margins are requested, a <style> override is injected into
-//     the HTML before passing to WeasyPrint.
+//  2. If custom margins/header/footer are requested, a <style> override is
+//     injected into the HTML before passing to WeasyPrint.
 //  3. WeasyPrint renders the standalone HTML → PDF.
 //
 // No filename/title metadata is injected; any title in the output comes
 // exclusively from the document's own content (YAML frontmatter or headings).
-func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, outputFile string, margins pdfMargins) error {
+func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, outputFile string, margins pdfMargins, decor pdfPageDecor) error {
 	// Step 1: Pandoc → self-contained HTML
 	pandocArgs := []string{
 		"-f", pandocInputFmt,
@@ -361,17 +442,16 @@ func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, o
 		return fmt.Errorf("pandoc html stage: %w — %s", err, strings.TrimSpace(buf1.String()))
 	}
 
-	// Step 2 (optional): inject margin overrides into the HTML
-	if margins != marginPresets["standard"] {
+	// Step 2 (optional): inject page overrides into the HTML
+	if overrides := pageOverridesCSS(margins, decor); overrides != "" {
 		htmlBytes, err := os.ReadFile(htmlFile)
 		if err != nil {
 			return fmt.Errorf("read html: %w", err)
 		}
-		override := marginOverrideCSS(margins)
 		// Inject right before </head>
-		modified := strings.Replace(string(htmlBytes), "</head>", override+"\n</head>", 1)
+		modified := strings.Replace(string(htmlBytes), "</head>", overrides+"\n</head>", 1)
 		if err := os.WriteFile(htmlFile, []byte(modified), 0600); err != nil {
-			return fmt.Errorf("write margin override: %w", err)
+			return fmt.Errorf("write page override: %w", err)
 		}
 	}
 
@@ -449,8 +529,9 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 
 	if format == "pdf" {
 		margins := parseMargins(r)
+		decor := parsePageDecor(r)
 		htmlFile := filepath.Join(tmpDir, "output.html")
-		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins); err != nil {
+		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins, decor); err != nil {
 			slog.Error("pdf export raw failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
 			return

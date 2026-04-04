@@ -17,7 +17,7 @@
   margin: 2.2cm 2.5cm 2.5cm 2.5cm;
 
   @bottom-center {
-    content: counter(page);
+    content: counter(page) "/" counter(pages);
     font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif;
     font-size: 8.5pt;
     color: #9ca3af;
