@@ -2,7 +2,7 @@
 
 | Date | Heure | Description | Fichier | Statut |
 |---|---|---|---|---|
-| 2026-04-04 | 12:08 | Release operation: verification anti-regression, commit/push/merge, build/deploy et verification post-prod | [2026-04-04_1208_release_push_merge_deploy.md](2026-04-04_1208_release_push_merge_deploy.md) | 🚧 En cours |
+| 2026-04-04 | 12:08 | Release operation: verification anti-regression, commit/push/merge, build/deploy et verification post-prod | [2026-04-04_1208_release_push_merge_deploy.md](2026-04-04_1208_release_push_merge_deploy.md) | ✅ Termine |
 | 2026-04-04 | 10:44 | Evolutions export PDF: options entete/pied de page, pagination `page/pages`, durcissement lisibilite UI theme clair + passe UX + TNR | [2026-04-04_1044_export_header_footer_pagination_ui.md](2026-04-04_1044_export_header_footer_pagination_ui.md) | ✅ Termine |
 | 2026-04-03 | 19:19 | Correctif preview markdown: H2 apres pagebreak (`\\newpage`) interprete en vrai heading, avec test de non-regression, CI/CD et deploy valides | [2026-04-03_1919_preview_pagebreak_h2_fix.md](2026-04-03_1919_preview_pagebreak_h2_fix.md) | ✅ Termine |
 | 2026-04-03 | 14:51 | Five-pass audit complet (qualite, securite, runtime, release), remediations, build no-cache, deploy, verification gates, puis correctif final preview H2 | [2026-04-03_1451_five_pass_audit_release.md](2026-04-03_1451_five_pass_audit_release.md) | ✅ Termine |
