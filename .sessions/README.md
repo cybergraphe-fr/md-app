@@ -2,6 +2,7 @@
 
 | Date | Heure | Description | Fichier | Statut |
 |---|---|---|---|---|
+| 2026-04-07 | 16:14 | Typecheck hardening TS config: correction `allowImportingTsExtensions` pour supprimer l erreur IDE et revalidation frontend complete | [2026-04-07_1614_tsconfig_typecheck_hardening.md](2026-04-07_1614_tsconfig_typecheck_hardening.md) | 🟡 En cours |
 | 2026-04-07 | 15:14 | Web desktop download + sync bridge: bouton telechargement OS-aware, alignement synchronisation web/desktop, documentation et release sequence | [2026-04-07_1514_web_desktop_download_sync_release.md](2026-04-07_1514_web_desktop_download_sync_release.md) | ✅ Termine |
 | 2026-04-07 | 14:57 | Pipeline desktop signature/notarization: signature Windows x64, notarization macOS, workflow CI dedie, cibles Makefile et documentation operateur | [2026-04-07_1457_desktop_signing_notarization_pipeline.md](2026-04-07_1457_desktop_signing_notarization_pipeline.md) | ✅ Termine |
 | 2026-04-07 | 14:22 | Bootstrap desktop MD: initialisation packaging Wails, builds cibles Windows 11 x64 + macOS, et cibles Makefile multi-plateforme | [2026-04-07_1422_desktop_windows_macos_bootstrap.md](2026-04-07_1422_desktop_windows_macos_bootstrap.md) | ✅ Termine |
