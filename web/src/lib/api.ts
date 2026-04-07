@@ -68,6 +68,21 @@ export interface PluginInfo {
   description: string;
 }
 
+export interface DesktopDownloadVariant {
+  id: string;
+  os: string;
+  arch: string;
+  label: string;
+  url?: string;
+  available: boolean;
+}
+
+export interface DesktopDownloadsInfo {
+  variants: DesktopDownloadVariant[];
+  page_url?: string;
+  has_any: boolean;
+}
+
 export interface PDFExportOptions {
   margin?: string;
   header?: string;
@@ -239,5 +254,9 @@ export const api = {
 
   linkWorkspace(code: string): Promise<{ workspace_id: string; sync_code: string; message: string }> {
     return request('POST', '/workspace/link', { code });
+  },
+
+  getDesktopDownloads(): Promise<DesktopDownloadsInfo> {
+    return request('GET', '/desktop/downloads');
   },
 };

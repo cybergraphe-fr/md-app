@@ -35,6 +35,13 @@ From repository root:
 - Windows x64: `bash desktop/windows-x64/scripts/build-win-x64.sh`
 - macOS amd64 + arm64: `bash desktop/macos/scripts/build-macos.sh`
 
+To embed remote web sync support in desktop binaries, set:
+
+- `MD_DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr`
+
+When this variable is set at build time, desktop API calls are proxied to the remote backend,
+so web and desktop can link the same workspace with the generated sync code.
+
 ## Signing and Notarization
 
 - Windows signing script: `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/sign-win-x64.ps1 -InputExe "build\\bin\\MD.exe"`
@@ -44,7 +51,7 @@ From repository root:
 
 - Manual workflow: `.github/workflows/desktop-release.yml`
 - Trigger: `workflow_dispatch`
-- Inputs: `version`, `sign_windows`, `notarize_macos`
+- Inputs: `version`, `sign_windows`, `notarize_macos`, `sync_api_base_url`
 
 Required secrets for Windows signing:
 - `MD_WIN_CERT_PFX_B64`
@@ -60,6 +67,7 @@ Required secrets for macOS notarization:
 Notes:
 - macOS artifacts generally require running on macOS for final signed/notarized outputs.
 - Windows artifacts are best produced on Windows for installer/signing finalization.
+- If remote sync input/variable is omitted, desktop runs in local mode with local-only workspace storage.
 
 ## Quick Make targets
 

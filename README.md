@@ -34,6 +34,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 | **View modes** | Split (editor + preview), Editor only, Preview only |
 | **Sidebar** | Collapsible file manager panel — toggle via toolbar button, state persisted in localStorage |
 | **Workspace sync** | Device-to-device workspace linking via 8-character sync code from the Synchroniser modal; includes retry UI and backend self-healing if a workspace code mapping is missing |
+| **Desktop download CTA** | Toolbar + Synchroniser modal expose OS-aware desktop download links returned by `/api/desktop/downloads`, with fallback links for other platforms |
 | **Export** | HTML, PDF (via Pandoc + WeasyPrint), DOCX, ODT, EPUB, LaTeX, RST, AsciiDoc, Textile, MediaWiki, Plain text |
 | **PDF margins** | Standard (2.5 cm), Narrow (1.5 cm), Wide (3.5 cm), or custom (per-axis in cm) — selectable in export modal |
 | **PDF header/footer** | Optional custom header and footer text in export modal; built-in pagination is now current/total (example: `9/14`) |
@@ -134,11 +135,16 @@ make desktop-bin-macos-arm64
 # full packaging scripts (host/toolchain dependent)
 make desktop-package-win-x64
 make desktop-package-macos
+
+# optional: embed remote API endpoint so desktop sync codes work with web workspace
+make desktop-package-win-x64 DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr
+make desktop-package-macos DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr
 ```
 
 Notes:
 - macOS package generation must be run on macOS for final `.app` + signing/notarization.
 - Windows installer/signing should be finalized on Windows.
+- If `DESKTOP_REMOTE_API_URL` (or `MD_DESKTOP_REMOTE_API_URL`) is set during packaging, desktop runs in connected mode and synchronizes against the remote web backend.
 
 ---
 
@@ -155,6 +161,12 @@ All configuration is done via **environment variables**.
 | `MD_API_KEY` | _(empty)_ | Optional API key (`X-API-Key` or `Authorization: Bearer` header). Empty = no auth |
 | `MD_APP_URL` | `http://localhost:8080` | Public URL of the app |
 | `MD_CORS_ORIGINS` | `MD_APP_URL` | Comma-separated allowed CORS origins |
+| `MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL` | _(empty)_ | Public download URL for Windows x64 desktop artifact |
+| `MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL` | _(empty)_ | Public download URL for macOS Apple Silicon artifact |
+| `MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL` | _(empty)_ | Public download URL for macOS Intel artifact |
+| `MD_DESKTOP_DOWNLOAD_LINUX_X64_URL` | _(empty)_ | Public download URL for Linux x64 artifact |
+| `MD_DESKTOP_DOWNLOAD_PAGE_URL` | _(empty)_ | Optional generic desktop downloads page fallback |
+| `MD_DESKTOP_REMOTE_API_URL` | _(empty)_ | Optional remote API URL used by desktop build/runtime for connected web sync mode |
 | `MD_MAX_FILE_SIZE_MB` | `10` | Max upload size in MB |
 | `MD_PANDOC_BINARY` | `pandoc` | Path to pandoc binary |
 | `MD_WEASYPRINT_BINARY` | `weasyprint` | Path to WeasyPrint binary (PDF export) |
@@ -177,6 +189,7 @@ Base URL: `https://your-domain/api`
 | `GET` | `/health` | Health check |
 | `GET` | `/api/workspace` | Return current workspace info `{workspace_id, sync_code, created_at}` |
 | `POST` | `/api/workspace/link` | Link current browser workspace to an existing one via `{code}` |
+| `GET` | `/api/desktop/downloads` | Return desktop download variants for OS-aware web CTA `{variants, page_url, has_any}` |
 | `GET` | `/api/files` | List all documents |
 | `POST` | `/api/files` | Create a document `{name, content, path?}` |
 | `GET` | `/api/files/:id` | Get document with content |
@@ -265,7 +278,7 @@ Two workflows are available in `.github/workflows/`:
 
 - `ci.yml`: quality gate on push/PR (`go vet`, Go build/tests, Svelte type-check, frontend build, Docker build)
 - `cd-prod.yml`: validation + production deploy over SSH on `main` and manual trigger
-- `desktop-release.yml`: manual desktop pipeline for Windows signing and macOS notarization
+- `desktop-release.yml`: manual desktop pipeline for Windows signing and macOS notarization (inputs: `version`, `sign_windows`, `notarize_macos`, `sync_api_base_url`)
 
 To enable automated production deployment, configure these GitHub secrets:
 
@@ -284,6 +297,10 @@ Desktop workflow secrets:
   - `MD_MACOS_SIGN_IDENTITY`
   - `MD_MACOS_TEAM_ID`
   - `MD_MACOS_NOTARY_KEYCHAIN_PROFILE` _or_ (`MD_MACOS_NOTARY_APPLE_ID` + `MD_MACOS_NOTARY_APP_PASSWORD`)
+
+Desktop workflow variable (optional):
+
+- `MD_DESKTOP_REMOTE_API_URL` (repository variable), used as fallback remote sync target when `sync_api_base_url` input is empty
 
 Deploy job behavior:
 

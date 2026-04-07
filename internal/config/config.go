@@ -14,6 +14,9 @@ type Config struct {
 	HTTPAddr string
 	WebRoot  string
 
+	// Desktop web download links
+	DesktopDownloads DesktopDownloadsConfig
+
 	// Storage
 	StoragePath string
 
@@ -36,6 +39,15 @@ type Config struct {
 	// App
 	AppURL        string
 	MaxFileSizeMB int64
+}
+
+// DesktopDownloadsConfig defines public desktop artifact URLs exposed by the web app.
+type DesktopDownloadsConfig struct {
+	WindowsX64URL string
+	MacOSAMD64URL string
+	MacOSARM64URL string
+	LinuxX64URL   string
+	PageURL       string
 }
 
 // getSecretOrEnv reads from Docker secrets first (/run/secrets/<name>),
@@ -78,11 +90,18 @@ func buildRedisURL() string {
 // Load reads configuration from Docker secrets + environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
-		HTTPAddr:         getEnv("MD_HTTP_ADDR", ":8080"),
-		WebRoot:          getEnv("MD_WEB_ROOT", "/app/web"),
-		StoragePath:      getEnv("MD_STORAGE_PATH", "/data/files"),
-		RedisURL:         buildRedisURL(),
-		APIKey:           getSecretOrEnv("api_key", "MD_API_KEY", ""),
+		HTTPAddr:    getEnv("MD_HTTP_ADDR", ":8080"),
+		WebRoot:     getEnv("MD_WEB_ROOT", "/app/web"),
+		StoragePath: getEnv("MD_STORAGE_PATH", "/data/files"),
+		RedisURL:    buildRedisURL(),
+		APIKey:      getSecretOrEnv("api_key", "MD_API_KEY", ""),
+		DesktopDownloads: DesktopDownloadsConfig{
+			WindowsX64URL: getEnv("MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL", ""),
+			MacOSAMD64URL: getEnv("MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL", ""),
+			MacOSARM64URL: getEnv("MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL", ""),
+			LinuxX64URL:   getEnv("MD_DESKTOP_DOWNLOAD_LINUX_X64_URL", ""),
+			PageURL:       getEnv("MD_DESKTOP_DOWNLOAD_PAGE_URL", ""),
+		},
 		PandocBinary:     getEnv("MD_PANDOC_BINARY", "pandoc"),
 		WeasyprintBinary: getEnv("MD_WEASYPRINT_BINARY", "weasyprint"),
 		ChromiumBinary:   getEnv("MD_CHROMIUM_BINARY", "chromium-browser"),

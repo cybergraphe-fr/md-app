@@ -89,10 +89,12 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 		wh := newWebhookHandler(webhookMgr)
 		ch := newCollabHandler(collabHub)
 		wsh := newWorkspaceHandler(wsRegistry)
+		dh := newDesktopDownloadsHandler(cfg)
 
 		// Workspace endpoints
 		r.Get("/api/workspace", wsh.info)
 		r.Post("/api/workspace/link", wsh.link)
+		r.Get("/api/desktop/downloads", dh.list)
 
 		r.Route("/api/files", func(r chi.Router) {
 			r.Get("/", fh.list)

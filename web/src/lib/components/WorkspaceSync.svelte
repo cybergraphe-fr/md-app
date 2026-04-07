@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { api } from '$lib/api';
+  import { api, type DesktopDownloadVariant } from '$lib/api';
+  import { detectDesktopClient, desktopClientLabel, pickDesktopDownload } from '$lib/desktop-download';
   import { loadFiles } from '$lib/stores/files';
-  import { Link2, Copy, Check } from 'lucide-svelte';
+  import { Link2, Copy, Check, Laptop } from 'lucide-svelte';
 
   let { isOpen = $bindable(false) } = $props<{ isOpen: boolean }>();
 
@@ -13,6 +14,12 @@
   let message = $state('');
   let copied = $state(false);
   let fetchRequestId = 0;
+  let desktopDownloads = $state<DesktopDownloadVariant[]>([]);
+  let desktopPageURL = $state('');
+  let desktopStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  let desktopError = $state('');
+  let desktopRequestId = 0;
+  const detectedClient = detectDesktopClient();
 
   async function fetchInfo(): Promise<void> {
     const reqID = ++fetchRequestId;
@@ -32,6 +39,38 @@
       syncStatus = 'error';
       syncError = 'Code indisponible temporairement. Reessayez.';
     }
+  }
+
+  async function fetchDesktopDownloads(): Promise<void> {
+    const reqID = ++desktopRequestId;
+    desktopStatus = 'loading';
+    desktopError = '';
+
+    try {
+      const payload = await api.getDesktopDownloads();
+      if (reqID !== desktopRequestId) return;
+      desktopDownloads = payload.variants ?? [];
+      desktopPageURL = payload.page_url ?? '';
+      desktopStatus = 'ready';
+    } catch {
+      if (reqID !== desktopRequestId) return;
+      desktopStatus = 'error';
+      desktopError = 'Catalogue desktop indisponible pour le moment.';
+      desktopDownloads = [];
+      desktopPageURL = '';
+    }
+  }
+
+  function availableDesktopDownloads(): DesktopDownloadVariant[] {
+    return desktopDownloads.filter((variant) => variant.available && !!variant.url);
+  }
+
+  function recommendedDesktopDownload(): DesktopDownloadVariant | null {
+    return pickDesktopDownload(availableDesktopDownloads(), detectedClient);
+  }
+
+  function alternateDesktopDownloads(recommendedID: string): DesktopDownloadVariant[] {
+    return availableDesktopDownloads().filter((variant) => variant.id !== recommendedID);
   }
 
   async function linkWorkspace(): Promise<void> {
@@ -68,12 +107,18 @@
   $effect(() => {
     if (isOpen) {
       void fetchInfo();
+      void fetchDesktopDownloads();
       return;
     }
     fetchRequestId++;
+    desktopRequestId++;
     syncStatus = 'idle';
     syncError = '';
     copied = false;
+    desktopStatus = 'idle';
+    desktopError = '';
+    desktopDownloads = [];
+    desktopPageURL = '';
   });
 </script>
 
@@ -106,6 +151,47 @@
         {#if syncStatus === 'error'}
           <p class="status error">{syncError}</p>
           <button class="btn-secondary" onclick={() => void fetchInfo()}>Reessayer</button>
+        {/if}
+      </section>
+
+      <hr />
+
+      <section>
+        <p class="section-label"><Laptop size={14} /> Client desktop recommande</p>
+
+        {#if desktopStatus === 'loading'}
+          <p class="hint">Detection OS en cours...</p>
+        {:else if desktopStatus === 'error'}
+          <p class="status error">{desktopError}</p>
+          <button class="btn-secondary" onclick={() => void fetchDesktopDownloads()}>Reessayer</button>
+        {:else}
+          {@const recommended = recommendedDesktopDownload()}
+
+          {#if recommended}
+            <a class="btn-download" href={recommended.url} target="_blank" rel="noopener noreferrer">
+              Telecharger {recommended.label}
+            </a>
+            <p class="download-context">
+              OS detecte: {desktopClientLabel(detectedClient)}. Apres installation, ouvrez "Synchroniser" dans le desktop
+              et saisissez ce code pour retrouver vos fichiers web.
+            </p>
+
+            {@const alternatives = alternateDesktopDownloads(recommended.id)}
+            {#if alternatives.length > 0}
+              <div class="download-links">
+                {#each alternatives as variant}
+                  <a href={variant.url} target="_blank" rel="noopener noreferrer">{variant.label}</a>
+                {/each}
+              </div>
+            {/if}
+          {:else if desktopPageURL}
+            <a class="btn-download" href={desktopPageURL} target="_blank" rel="noopener noreferrer">
+              Voir toutes les versions desktop
+            </a>
+            <p class="download-context">Aucun binaire cible n est encore publie pour cet OS.</p>
+          {:else}
+            <p class="hint">Les clients desktop seront proposes ici des qu ils sont publies.</p>
+          {/if}
         {/if}
       </section>
 
@@ -176,7 +262,9 @@
   }
 
   .section-label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--text-secondary, #a0a0b8);
@@ -273,6 +361,53 @@
 
   .btn-secondary:hover {
     color: var(--text-primary, #e0e0f0);
+  }
+
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    border: none;
+    text-decoration: none;
+    background: var(--accent, #6366f1);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .btn-download:hover {
+    background: var(--accent-hover, #818cf8);
+  }
+
+  .download-context {
+    margin: 0.4rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary, #a0a0b8);
+    line-height: 1.4;
+  }
+
+  .download-links {
+    margin-top: 0.45rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .download-links a {
+    font-size: 0.74rem;
+    color: var(--accent, #6366f1);
+    text-decoration: none;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+  }
+
+  .download-links a:hover {
+    color: #fff;
+    border-color: var(--accent, #6366f1);
   }
 
   .status {

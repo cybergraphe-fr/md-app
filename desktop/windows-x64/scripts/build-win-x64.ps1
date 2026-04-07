@@ -32,13 +32,18 @@ Write-Host "[desktop] building frontend assets"
 npm ci --prefix web
 npm run build --prefix web
 
+$ldflags = "-X main.Version=$Version"
+if ($env:MD_DESKTOP_REMOTE_API_URL) {
+  $ldflags = "$ldflags -X main.RemoteAPIURL=$($env:MD_DESKTOP_REMOTE_API_URL)"
+}
+
 Write-Host "[desktop] building Wails app for windows/amd64"
 & $wailsBin build `
   -tags desktop `
   -platform windows/amd64 `
   -clean `
   -trimpath `
-  -ldflags "-X main.Version=$Version"
+  -ldflags $ldflags
 
 $exePath = Join-Path $RootDir "build\bin\MD.exe"
 if (-not (Test-Path $exePath)) {

@@ -53,6 +53,7 @@
   export let onSearch: () => void;
   export let onHistory: () => void;
   export let onSync: () => void;
+  export let onDesktopDownloads: () => void;
 
   const viewIcons: Record<string, typeof Columns2> = {
     split: Columns2,
@@ -218,6 +219,11 @@
 
     <button class="btn btn-icon" title="Synchroniser" onclick={onSync}>
       <RefreshCw size={15} />
+    </button>
+
+    <button class="btn" title="Telecharger le client desktop" onclick={onDesktopDownloads}>
+      <Download size={14} />
+      Desktop
     </button>
 
     <button

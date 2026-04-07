@@ -17,14 +17,15 @@ import (
 )
 
 var (
-	Version = "dev"
+	Version      = "dev"
+	RemoteAPIURL = ""
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	runtime, err := desktop.Start(Version)
+	runtime, err := desktop.Start(Version, RemoteAPIURL)
 	if err != nil {
 		slog.Error("failed to start desktop runtime", "error", err)
 		os.Exit(1)

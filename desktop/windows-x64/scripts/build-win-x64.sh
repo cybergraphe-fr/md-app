@@ -34,13 +34,18 @@ echo "[desktop] building frontend assets"
 npm ci --prefix web
 npm run build --prefix web
 
+LDFLAGS="-X main.Version=${VERSION}"
+if [[ -n "${MD_DESKTOP_REMOTE_API_URL:-}" ]]; then
+  LDFLAGS+=" -X main.RemoteAPIURL=${MD_DESKTOP_REMOTE_API_URL}"
+fi
+
 echo "[desktop] building Wails app for windows/amd64"
 "$WAILS_BIN" build \
   -tags desktop \
   -platform windows/amd64 \
   -clean \
   -trimpath \
-  -ldflags "-X main.Version=${VERSION}"
+  -ldflags "$LDFLAGS"
 
 if [[ ! -f build/bin/MD.exe ]]; then
   echo "error: expected artifact build/bin/MD.exe was not produced" >&2

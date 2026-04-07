@@ -14,6 +14,10 @@ Scope:
 
 - `bash desktop/macos/scripts/build-macos.sh`
 
+Optional (connected sync with web backend):
+
+- Set `MD_DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr` before build to embed remote sync API target.
+
 The script currently targets `darwin/amd64,darwin/arm64`.
 For native notarized releases, run from macOS with signing credentials configured.
 

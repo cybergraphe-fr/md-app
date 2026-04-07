@@ -10,6 +10,10 @@ Scope:
 - Windows native shell: `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/build-win-x64.ps1`
 - Cross-run from bash: `bash desktop/windows-x64/scripts/build-win-x64.sh`
 
+Optional (connected sync with web backend):
+
+- Set `MD_DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr` before build to embed remote sync API target.
+
 ## Signing
 
 - Script: `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/sign-win-x64.ps1 -InputExe "build\\bin\\MD.exe"`

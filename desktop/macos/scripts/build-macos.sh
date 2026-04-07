@@ -38,13 +38,18 @@ echo "[desktop] building frontend assets"
 npm ci --prefix web
 npm run build --prefix web
 
+LDFLAGS="-X main.Version=${VERSION}"
+if [[ -n "${MD_DESKTOP_REMOTE_API_URL:-}" ]]; then
+	LDFLAGS+=" -X main.RemoteAPIURL=${MD_DESKTOP_REMOTE_API_URL}"
+fi
+
 echo "[desktop] building Wails app for darwin/amd64,darwin/arm64"
 "$WAILS_BIN" build \
 	-tags desktop \
 	-platform darwin/amd64,darwin/arm64 \
 	-clean \
 	-trimpath \
-	-ldflags "-X main.Version=${VERSION}"
+	-ldflags "$LDFLAGS"
 
 APP_BUNDLE="build/bin/${APP_NAME}.app"
 if [[ ! -d "$APP_BUNDLE/Contents/Resources" ]]; then

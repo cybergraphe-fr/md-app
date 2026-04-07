@@ -17,6 +17,10 @@ on:
         required: true
         type: boolean
         default: true
+      sync_api_base_url:
+        description: Optional remote API base URL embedded for web-desktop sync (for example https://md.cybergraphe.fr)
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -45,6 +49,8 @@ jobs:
 
       - name: Build Windows desktop
         shell: pwsh
+        env:
+          MD_DESKTOP_REMOTE_API_URL: ${{ inputs.sync_api_base_url != '' && inputs.sync_api_base_url || vars.MD_DESKTOP_REMOTE_API_URL }}
         run: ./desktop/windows-x64/scripts/build-win-x64.ps1 -Version "${{ inputs.version }}"
 
       - name: Check Windows signing secrets
@@ -100,6 +106,8 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 
       - name: Build macOS desktop
+        env:
+          MD_DESKTOP_REMOTE_API_URL: ${{ inputs.sync_api_base_url != '' && inputs.sync_api_base_url || vars.MD_DESKTOP_REMOTE_API_URL }}
         run: bash desktop/macos/scripts/build-macos.sh "${{ inputs.version }}" "MD"
 
       - name: Check macOS notarization secrets

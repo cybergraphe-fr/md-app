@@ -3,6 +3,8 @@
 	desktop-bin-all desktop-package-win-x64 desktop-package-macos desktop-package-all \
 	desktop-sign-win-x64 desktop-notarize-macos desktop-notary-profile
 
+DESKTOP_REMOTE_API_URL ?=
+
 dev:
 	go run ./cmd/server
 
@@ -62,10 +64,10 @@ desktop-bin-macos-arm64:
 desktop-bin-all: desktop-bin-win-x64 desktop-bin-macos-amd64 desktop-bin-macos-arm64
 
 desktop-package-win-x64:
-	bash desktop/windows-x64/scripts/build-win-x64.sh
+	MD_DESKTOP_REMOTE_API_URL="$(DESKTOP_REMOTE_API_URL)" bash desktop/windows-x64/scripts/build-win-x64.sh
 
 desktop-package-macos:
-	bash desktop/macos/scripts/build-macos.sh
+	MD_DESKTOP_REMOTE_API_URL="$(DESKTOP_REMOTE_API_URL)" bash desktop/macos/scripts/build-macos.sh
 
 desktop-package-all: desktop-package-win-x64 desktop-package-macos
 
