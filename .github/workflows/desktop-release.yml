@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   windows:
-    name: Windows x64 Build and Sign
+    name: Windows x64 Build, Sign and Package
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -76,13 +76,18 @@ jobs:
           MD_WIN_CERT_PASSWORD: ${{ secrets.MD_WIN_CERT_PASSWORD }}
         run: ./desktop/windows-x64/scripts/sign-win-x64.ps1 -InputExe "build\bin\MD.exe"
 
+      - name: Package Windows installers
+        shell: pwsh
+        run: ./desktop/windows-x64/scripts/package-win-x64.ps1 -Version "${{ inputs.version }}" -AppName "MD"
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: md-desktop-windows-x64
           path: |
-            build/bin/MD.exe
-            build/bin/web/**
+            build/releases/windows-x64/*.exe
+            build/releases/windows-x64/*.zip
+            build/releases/windows-x64/*.msi
           if-no-files-found: error
 
   macos:
@@ -138,11 +143,15 @@ jobs:
           MD_MACOS_NOTARY_APP_PASSWORD: ${{ secrets.MD_MACOS_NOTARY_APP_PASSWORD }}
         run: bash desktop/macos/notarization/notarize-macos.sh build/bin/MD.app
 
+      - name: Package macOS installers
+        run: bash desktop/macos/scripts/package-macos-installers.sh "${{ inputs.version }}" "MD"
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: md-desktop-macos
           path: |
-            build/bin/MD.app
-            build/bin/MD-notarize.zip
-          if-no-files-found: warn
+            build/releases/macos/*.dmg
+            build/releases/macos/*.pkg
+            build/releases/macos/*.zip
+          if-no-files-found: error

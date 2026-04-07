@@ -4,6 +4,7 @@
 	desktop-sign-win-x64 desktop-notarize-macos desktop-notary-profile
 
 DESKTOP_REMOTE_API_URL ?=
+DESKTOP_VERSION ?= 0.1.0-dev
 
 dev:
 	go run ./cmd/server
@@ -65,9 +66,15 @@ desktop-bin-all: desktop-bin-win-x64 desktop-bin-macos-amd64 desktop-bin-macos-a
 
 desktop-package-win-x64:
 	MD_DESKTOP_REMOTE_API_URL="$(DESKTOP_REMOTE_API_URL)" bash desktop/windows-x64/scripts/build-win-x64.sh
+	@if command -v pwsh >/dev/null 2>&1; then \
+		pwsh -NoLogo -NoProfile -File desktop/windows-x64/scripts/package-win-x64.ps1 -Version "$(DESKTOP_VERSION)" -AppName "MD"; \
+	else \
+		echo "[desktop] skipping MSI packaging (pwsh unavailable on this host)"; \
+	fi
 
 desktop-package-macos:
 	MD_DESKTOP_REMOTE_API_URL="$(DESKTOP_REMOTE_API_URL)" bash desktop/macos/scripts/build-macos.sh
+	bash desktop/macos/scripts/package-macos-installers.sh "$(DESKTOP_VERSION)" "MD"
 
 desktop-package-all: desktop-package-win-x64 desktop-package-macos
 

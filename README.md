@@ -136,6 +136,10 @@ make desktop-bin-macos-arm64
 make desktop-package-win-x64
 make desktop-package-macos
 
+# pin release label for installer filenames
+make desktop-package-win-x64 DESKTOP_VERSION=0.1.0
+make desktop-package-macos DESKTOP_VERSION=0.1.0
+
 # optional: embed remote API endpoint so desktop sync codes work with web workspace
 make desktop-package-win-x64 DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr
 make desktop-package-macos DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr
@@ -143,8 +147,9 @@ make desktop-package-macos DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr
 
 Notes:
 - macOS package generation must be run on macOS for final `.app` + signing/notarization.
-- Windows installer/signing should be finalized on Windows.
+- Windows MSI packaging/signing should be finalized on Windows (PowerShell + WiX).
 - If `DESKTOP_REMOTE_API_URL` (or `MD_DESKTOP_REMOTE_API_URL`) is set during packaging, desktop runs in connected mode and synchronizes against the remote web backend.
+- Publish generated installers under `MD_DESKTOP_DOWNLOADS_DIR` (default `/data/downloads`) to expose them on `https://<domain>/downloads/...`.
 
 ---
 
@@ -161,11 +166,12 @@ All configuration is done via **environment variables**.
 | `MD_API_KEY` | _(empty)_ | Optional API key (`X-API-Key` or `Authorization: Bearer` header). Empty = no auth |
 | `MD_APP_URL` | `http://localhost:8080` | Public URL of the app |
 | `MD_CORS_ORIGINS` | `MD_APP_URL` | Comma-separated allowed CORS origins |
-| `MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL` | _(empty)_ | Public download URL for Windows x64 desktop artifact |
-| `MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL` | _(empty)_ | Public download URL for macOS Apple Silicon artifact |
-| `MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL` | _(empty)_ | Public download URL for macOS Intel artifact |
-| `MD_DESKTOP_DOWNLOAD_LINUX_X64_URL` | _(empty)_ | Public download URL for Linux x64 artifact |
-| `MD_DESKTOP_DOWNLOAD_PAGE_URL` | _(empty)_ | Optional generic desktop downloads page fallback |
+| `MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL` | `/downloads/MD-latest-windows-x64.msi` | Public download URL for Windows x64 desktop artifact |
+| `MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL` | `/downloads/MD-latest-macos.dmg` | Public download URL for macOS Apple Silicon artifact |
+| `MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL` | `/downloads/MD-latest-macos.dmg` | Public download URL for macOS Intel artifact |
+| `MD_DESKTOP_DOWNLOAD_LINUX_X64_URL` | `/downloads/MD-latest-linux-x64.tar.gz` | Public download URL for Linux x64 artifact |
+| `MD_DESKTOP_DOWNLOAD_PAGE_URL` | `/downloads/` | Optional generic desktop downloads page fallback |
+| `MD_DESKTOP_DOWNLOADS_DIR` | `MD_STORAGE_PATH/downloads` | Directory served by `/downloads/*` to publish installer files |
 | `MD_DESKTOP_REMOTE_API_URL` | _(empty)_ | Optional remote API URL used by desktop build/runtime for connected web sync mode |
 | `MD_MAX_FILE_SIZE_MB` | `10` | Max upload size in MB |
 | `MD_PANDOC_BINARY` | `pandoc` | Path to pandoc binary |
@@ -190,6 +196,7 @@ Base URL: `https://your-domain/api`
 | `GET` | `/api/workspace` | Return current workspace info `{workspace_id, sync_code, created_at}` |
 | `POST` | `/api/workspace/link` | Link current browser workspace to an existing one via `{code}` |
 | `GET` | `/api/desktop/downloads` | Return desktop download variants for OS-aware web CTA `{variants, page_url, has_any}` |
+| `GET` | `/downloads/*` | Serve published desktop installer files from `MD_DESKTOP_DOWNLOADS_DIR` |
 | `GET` | `/api/files` | List all documents |
 | `POST` | `/api/files` | Create a document `{name, content, path?}` |
 | `GET` | `/api/files/:id` | Get document with content |
@@ -278,7 +285,7 @@ Two workflows are available in `.github/workflows/`:
 
 - `ci.yml`: quality gate on push/PR (`go vet`, Go build/tests, Svelte type-check, frontend build, Docker build)
 - `cd-prod.yml`: validation + production deploy over SSH on `main` and manual trigger
-- `desktop-release.yml`: manual desktop pipeline for Windows signing and macOS notarization (inputs: `version`, `sign_windows`, `notarize_macos`, `sync_api_base_url`)
+- `desktop-release.yml`: manual desktop pipeline for Windows signing + MSI packaging and macOS notarization + DMG/PKG packaging (inputs: `version`, `sign_windows`, `notarize_macos`, `sync_api_base_url`)
 
 To enable automated production deployment, configure these GitHub secrets:
 

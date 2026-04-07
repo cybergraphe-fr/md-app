@@ -46,6 +46,12 @@ func main() {
 		slog.Error("failed to create storage directory", "path", cfg.StoragePath, "error", err)
 		os.Exit(1)
 	}
+	if cfg.DesktopDownloadsDir != "" {
+		if err := os.MkdirAll(cfg.DesktopDownloadsDir, 0750); err != nil {
+			slog.Error("failed to create desktop downloads directory", "path", cfg.DesktopDownloadsDir, "error", err)
+			os.Exit(1)
+		}
+	}
 
 	// Redis client (optional)
 	var redisClient *cache.Client

@@ -13,6 +13,7 @@ Scope:
 ## Build
 
 - `bash desktop/macos/scripts/build-macos.sh`
+- `bash desktop/macos/scripts/package-macos-installers.sh "0.1.0-dev" "MD"`
 
 Optional (connected sync with web backend):
 
@@ -20,6 +21,13 @@ Optional (connected sync with web backend):
 
 The script currently targets `darwin/amd64,darwin/arm64`.
 For native notarized releases, run from macOS with signing credentials configured.
+
+Installer outputs are written to `build/releases/macos/`:
+
+- `MD-<version>-macos.dmg`
+- `MD-<version>-macos.pkg`
+- `MD-<version>-macos.zip`
+- stable aliases `MD-latest-macos.*`
 
 ## Notarization
 

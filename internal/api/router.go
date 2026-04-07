@@ -54,11 +54,19 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 	}
 	assetsDir := filepath.Join(webRoot, "assets")
 	fontsDir := filepath.Join(webRoot, "fonts")
+	downloadsDir := cfg.DesktopDownloadsDir
+	if downloadsDir == "" {
+		downloadsDir = filepath.Join(cfg.StoragePath, "downloads")
+	}
 	indexFile := filepath.Join(webRoot, "index.html")
 
 	// Static frontend assets (served from embedded filesystem or /app/web)
 	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
 	r.Handle("/fonts/*", http.StripPrefix("/fonts/", http.FileServer(http.Dir(fontsDir))))
+	r.Get("/downloads", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/downloads/", http.StatusMovedPermanently)
+	})
+	r.Handle("/downloads/*", http.StripPrefix("/downloads/", http.FileServer(http.Dir(downloadsDir))))
 
 	// Auth endpoints (always public, handled before OIDC middleware)
 	if oidcCfg != nil {

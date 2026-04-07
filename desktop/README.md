@@ -34,6 +34,8 @@ From repository root:
 
 - Windows x64: `bash desktop/windows-x64/scripts/build-win-x64.sh`
 - macOS amd64 + arm64: `bash desktop/macos/scripts/build-macos.sh`
+- Windows installers (exe/zip/msi, on Windows host): `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/package-win-x64.ps1 -Version "0.1.0-dev" -AppName "MD"`
+- macOS installers (dmg/pkg/zip, on macOS host): `bash desktop/macos/scripts/package-macos-installers.sh "0.1.0-dev" "MD"`
 
 To embed remote web sync support in desktop binaries, set:
 
@@ -68,6 +70,13 @@ Notes:
 - macOS artifacts generally require running on macOS for final signed/notarized outputs.
 - Windows artifacts are best produced on Windows for installer/signing finalization.
 - If remote sync input/variable is omitted, desktop runs in local mode with local-only workspace storage.
+
+Installer outputs are generated in:
+
+- `build/releases/windows-x64/`
+- `build/releases/macos/`
+
+Both versioned and stable `*-latest-*` filenames are emitted for web URL wiring.
 
 ## Quick Make targets
 

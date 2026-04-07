@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -16,6 +17,8 @@ type Config struct {
 
 	// Desktop web download links
 	DesktopDownloads DesktopDownloadsConfig
+	// Directory served at /downloads for desktop artifacts
+	DesktopDownloadsDir string
 
 	// Storage
 	StoragePath string
@@ -89,10 +92,12 @@ func buildRedisURL() string {
 
 // Load reads configuration from Docker secrets + environment variables.
 func Load() (*Config, error) {
+	storagePath := getEnv("MD_STORAGE_PATH", "/data/files")
+
 	cfg := &Config{
 		HTTPAddr:    getEnv("MD_HTTP_ADDR", ":8080"),
 		WebRoot:     getEnv("MD_WEB_ROOT", "/app/web"),
-		StoragePath: getEnv("MD_STORAGE_PATH", "/data/files"),
+		StoragePath: storagePath,
 		RedisURL:    buildRedisURL(),
 		APIKey:      getSecretOrEnv("api_key", "MD_API_KEY", ""),
 		DesktopDownloads: DesktopDownloadsConfig{
@@ -102,11 +107,12 @@ func Load() (*Config, error) {
 			LinuxX64URL:   getEnv("MD_DESKTOP_DOWNLOAD_LINUX_X64_URL", ""),
 			PageURL:       getEnv("MD_DESKTOP_DOWNLOAD_PAGE_URL", ""),
 		},
-		PandocBinary:     getEnv("MD_PANDOC_BINARY", "pandoc"),
-		WeasyprintBinary: getEnv("MD_WEASYPRINT_BINARY", "weasyprint"),
-		ChromiumBinary:   getEnv("MD_CHROMIUM_BINARY", "chromium-browser"),
-		AppURL:           getEnv("MD_APP_URL", "http://localhost:8080"),
-		MaxFileSizeMB:    getEnvInt64("MD_MAX_FILE_SIZE_MB", 10),
+		DesktopDownloadsDir: getEnv("MD_DESKTOP_DOWNLOADS_DIR", filepath.Join(storagePath, "downloads")),
+		PandocBinary:        getEnv("MD_PANDOC_BINARY", "pandoc"),
+		WeasyprintBinary:    getEnv("MD_WEASYPRINT_BINARY", "weasyprint"),
+		ChromiumBinary:      getEnv("MD_CHROMIUM_BINARY", "chromium-browser"),
+		AppURL:              getEnv("MD_APP_URL", "http://localhost:8080"),
+		MaxFileSizeMB:       getEnvInt64("MD_MAX_FILE_SIZE_MB", 10),
 	}
 
 	// CORS allowed origins

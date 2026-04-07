@@ -52,6 +52,9 @@ func Start(version, defaultRemoteAPI string) (*Runtime, error) {
 	}
 
 	cfg.StoragePath = storagePath
+	if strings.TrimSpace(os.Getenv("MD_DESKTOP_DOWNLOADS_DIR")) == "" {
+		cfg.DesktopDownloadsDir = filepath.Join(storagePath, "downloads")
+	}
 	cfg.WebRoot = webRoot
 	cfg.AppURL = "http://127.0.0.1"
 	cfg.CORSRoots = []string{"http://127.0.0.1", "http://localhost"}

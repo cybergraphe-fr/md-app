@@ -9,6 +9,7 @@ Scope:
 
 - Windows native shell: `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/build-win-x64.ps1`
 - Cross-run from bash: `bash desktop/windows-x64/scripts/build-win-x64.sh`
+- Installer packaging (requires WiX on Windows host): `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/package-win-x64.ps1 -Version "0.1.0-dev" -AppName "MD"`
 
 Optional (connected sync with web backend):
 
@@ -27,8 +28,10 @@ Optional:
 
 ## Planned outputs
 
-- md-desktop-x64.exe (or app bundle)
-- installer artifact in installer/
+- `build/releases/windows-x64/MD-<version>-windows-x64.exe` (portable)
+- `build/releases/windows-x64/MD-<version>-windows-x64.zip` (bundle exe + web assets)
+- `build/releases/windows-x64/MD-<version>-windows-x64.msi` (installer)
+- `build/releases/windows-x64/MD-latest-windows-x64.*` stable aliases
 
 ## Baseline requirements
 
