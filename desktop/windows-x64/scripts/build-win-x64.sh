@@ -47,6 +47,7 @@ echo "[desktop] building Wails app for windows/amd64"
   "$WAILS_BIN" build \
     -tags desktop \
     -platform windows/amd64 \
+    -skipbindings \
     -s \
     -clean \
     -trimpath \

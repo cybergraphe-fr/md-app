@@ -46,6 +46,7 @@ try {
   & $wailsBin build `
     -tags desktop `
     -platform windows/amd64 `
+    -skipbindings `
     -s `
     -clean `
     -trimpath `

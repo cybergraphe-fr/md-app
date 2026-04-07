@@ -52,6 +52,7 @@ echo "[desktop] building Wails app for ${MAC_PLATFORMS}"
 	"$WAILS_BIN" build \
 		-tags desktop \
 		-platform "$MAC_PLATFORMS" \
+		-skipbindings \
 		-s \
 		-clean \
 		-trimpath \
