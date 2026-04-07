@@ -169,10 +169,10 @@ if (-not $SkipMsi) {
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="INSTALLDIR" Name="$AppName" />
       </Directory>
-      <Directory Id="ProgramMenuFolder">
+      <Directory Id="CommonProgramsFolder">
         <Directory Id="ApplicationProgramsFolder" Name="$AppName" />
       </Directory>
-      <Directory Id="DesktopFolder" />
+      <Directory Id="CommonDesktopFolder" />
     </Directory>
   </Fragment>
 
@@ -186,12 +186,12 @@ if (-not $SkipMsi) {
       <Shortcut Id="ApplicationDesktopShortcut"
                 Name="$AppName"
                 Description="$AppName Desktop"
-                Directory="DesktopFolder"
+           Directory="CommonDesktopFolder"
                 Target="[INSTALLDIR]$AppName.exe"
                 WorkingDirectory="INSTALLDIR" />
       <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
       <RegistryValue Root="HKLM"
-                     Key="Software\\Cybergraphe\\$AppName"
+             Key="Software\Cybergraphe\$AppName"
                      Name="installed"
                      Type="integer"
                      Value="1"
