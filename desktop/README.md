@@ -35,6 +35,28 @@ From repository root:
 - Windows x64: `bash desktop/windows-x64/scripts/build-win-x64.sh`
 - macOS amd64 + arm64: `bash desktop/macos/scripts/build-macos.sh`
 
+## Signing and Notarization
+
+- Windows signing script: `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/sign-win-x64.ps1 -InputExe "build\\bin\\MD.exe"`
+- macOS notarization script: `bash desktop/macos/notarization/notarize-macos.sh build/bin/MD.app`
+
+## GitHub workflow
+
+- Manual workflow: `.github/workflows/desktop-release.yml`
+- Trigger: `workflow_dispatch`
+- Inputs: `version`, `sign_windows`, `notarize_macos`
+
+Required secrets for Windows signing:
+- `MD_WIN_CERT_PFX_B64`
+- `MD_WIN_CERT_PASSWORD`
+
+Required secrets for macOS notarization:
+- `MD_MACOS_SIGN_IDENTITY`
+- `MD_MACOS_TEAM_ID`
+- and either:
+	- `MD_MACOS_NOTARY_KEYCHAIN_PROFILE`
+	- or `MD_MACOS_NOTARY_APPLE_ID` + `MD_MACOS_NOTARY_APP_PASSWORD`
+
 Notes:
 - macOS artifacts generally require running on macOS for final signed/notarized outputs.
 - Windows artifacts are best produced on Windows for installer/signing finalization.
@@ -47,3 +69,6 @@ Notes:
 - `make desktop-bin-all`
 - `make desktop-package-win-x64`
 - `make desktop-package-macos`
+- `make desktop-sign-win-x64`
+- `make desktop-notary-profile`
+- `make desktop-notarize-macos`

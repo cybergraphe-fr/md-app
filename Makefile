@@ -1,6 +1,7 @@
 .PHONY: dev dev-frontend build test test-race test-frontend lint vet vuln check clean docker docker-nas ci \
 	desktop-install-tools desktop-bin-win-x64 desktop-bin-macos-amd64 desktop-bin-macos-arm64 \
-	desktop-bin-all desktop-package-win-x64 desktop-package-macos desktop-package-all
+	desktop-bin-all desktop-package-win-x64 desktop-package-macos desktop-package-all \
+	desktop-sign-win-x64 desktop-notarize-macos desktop-notary-profile
 
 dev:
 	go run ./cmd/server
@@ -67,3 +68,12 @@ desktop-package-macos:
 	bash desktop/macos/scripts/build-macos.sh
 
 desktop-package-all: desktop-package-win-x64 desktop-package-macos
+
+desktop-sign-win-x64:
+	powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/sign-win-x64.ps1 -InputExe "build\\bin\\MD.exe"
+
+desktop-notary-profile:
+	bash desktop/macos/notarization/store-notary-profile.sh
+
+desktop-notarize-macos:
+	bash desktop/macos/notarization/notarize-macos.sh build/bin/MD.app

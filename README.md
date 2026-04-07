@@ -265,6 +265,7 @@ Two workflows are available in `.github/workflows/`:
 
 - `ci.yml`: quality gate on push/PR (`go vet`, Go build/tests, Svelte type-check, frontend build, Docker build)
 - `cd-prod.yml`: validation + production deploy over SSH on `main` and manual trigger
+- `desktop-release.yml`: manual desktop pipeline for Windows signing and macOS notarization
 
 To enable automated production deployment, configure these GitHub secrets:
 
@@ -273,6 +274,16 @@ To enable automated production deployment, configure these GitHub secrets:
 - `MD_PROD_SSH_KEY`
 - `MD_PROD_SSH_PORT` (optional, default `22`)
 - `MD_PROD_APP_DIR` (optional, default `/srv/apps/md`)
+
+Desktop workflow secrets:
+
+- Windows signing:
+  - `MD_WIN_CERT_PFX_B64`
+  - `MD_WIN_CERT_PASSWORD`
+- macOS notarization:
+  - `MD_MACOS_SIGN_IDENTITY`
+  - `MD_MACOS_TEAM_ID`
+  - `MD_MACOS_NOTARY_KEYCHAIN_PROFILE` _or_ (`MD_MACOS_NOTARY_APPLE_ID` + `MD_MACOS_NOTARY_APP_PASSWORD`)
 
 Deploy job behavior:
 
