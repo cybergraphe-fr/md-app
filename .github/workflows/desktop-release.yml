@@ -64,8 +64,7 @@ jobs:
           if ("$env:HAS_CERT" -eq "true" -and "$env:HAS_PASS" -eq "true") {
             "can_sign=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
-            "can_sign=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            Write-Host "::notice::Windows signing skipped. Set MD_WIN_CERT_PFX_B64 and MD_WIN_CERT_PASSWORD."
+            Write-Error "Windows signing requested but signing secrets are missing. Configure MD_WIN_CERT_PFX_B64 and MD_WIN_CERT_PASSWORD, or rerun with sign_windows=false for unsigned internal builds."
           }
 
       - name: Sign Windows executable
@@ -79,6 +78,21 @@ jobs:
       - name: Package Windows installers
         shell: pwsh
         run: ./desktop/windows-x64/scripts/package-win-x64.ps1 -Version "${{ inputs.version }}" -AppName "MD"
+
+      - name: Sign Windows MSI installers
+        if: ${{ inputs.sign_windows && steps.check_win_sign.outputs.can_sign == 'true' }}
+        shell: pwsh
+        env:
+          MD_WIN_CERT_PFX_B64: ${{ secrets.MD_WIN_CERT_PFX_B64 }}
+          MD_WIN_CERT_PASSWORD: ${{ secrets.MD_WIN_CERT_PASSWORD }}
+        run: |
+          $msiFiles = Get-ChildItem -Path "build\releases\windows-x64" -Filter "*.msi" -File
+          if (-not $msiFiles -or $msiFiles.Count -eq 0) {
+            throw "No MSI files found in build\\releases\\windows-x64 for signing"
+          }
+          foreach ($msi in $msiFiles) {
+            ./desktop/windows-x64/scripts/sign-win-x64.ps1 -InputExe $msi.FullName
+          }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

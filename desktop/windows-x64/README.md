@@ -21,6 +21,7 @@ Optional (connected sync with web backend):
 - Required secrets/environment:
 	- `MD_WIN_CERT_PFX_B64` (base64 PFX)
 	- `MD_WIN_CERT_PASSWORD`
+- Release expectation: sign both the built executable and generated MSI before publication.
 
 Optional:
 - `MD_WIN_CERT_BASE64` can be used as fallback key name for certificate payload.

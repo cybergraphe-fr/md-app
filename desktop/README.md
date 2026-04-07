@@ -59,6 +59,11 @@ Required secrets for Windows signing:
 - `MD_WIN_CERT_PFX_B64`
 - `MD_WIN_CERT_PASSWORD`
 
+Windows signing gate:
+- If `sign_windows=true`, the workflow fails when either Windows signing secret is missing.
+- MSI outputs are signed after packaging.
+- Use `sign_windows=false` only for internal unsigned test builds.
+
 Required secrets for macOS notarization:
 - `MD_MACOS_SIGN_IDENTITY`
 - `MD_MACOS_TEAM_ID`

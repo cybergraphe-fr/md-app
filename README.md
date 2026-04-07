@@ -305,6 +305,12 @@ Desktop workflow secrets:
   - `MD_MACOS_TEAM_ID`
   - `MD_MACOS_NOTARY_KEYCHAIN_PROFILE` _or_ (`MD_MACOS_NOTARY_APPLE_ID` + `MD_MACOS_NOTARY_APP_PASSWORD`)
 
+Desktop workflow signing behavior:
+
+- If `sign_windows=true`, the workflow now fails if `MD_WIN_CERT_PFX_B64` or `MD_WIN_CERT_PASSWORD` is missing.
+- MSI artifacts are signed after packaging when signing is enabled.
+- To produce unsigned internal test artifacts, run the workflow with `sign_windows=false`.
+
 Desktop workflow variable (optional):
 
 - `MD_DESKTOP_REMOTE_API_URL` (repository variable), used as fallback remote sync target when `sync_api_base_url` input is empty
