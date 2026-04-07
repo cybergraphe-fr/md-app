@@ -5,9 +5,10 @@ BASE="https://md.cybergraphe.fr"
 PASS=0
 FAIL=0
 COOKIE_JAR=$(mktemp)
+COOKIE_JAR_2=$(mktemp)
 
 cleanup() {
-  rm -f "$COOKIE_JAR"
+  rm -f "$COOKIE_JAR" "$COOKIE_JAR_2"
 }
 trap cleanup EXIT
 
@@ -37,6 +38,38 @@ echo ""
 # 1. Health
 H=$(curl -sf "$BASE/health" 2>/dev/null || echo "")
 [[ "$H" == *'"status":"ok"'* ]] && check "Health endpoint" "PASS" || check "Health endpoint" "FAIL"
+
+# 1b. Workspace info endpoint (sync code available)
+WS_INFO=$(curl -sf "$BASE/api/workspace" 2>/dev/null || echo "")
+WS_ID=$(echo "$WS_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('workspace_id',''))" 2>/dev/null || echo "")
+WS_CODE=$(echo "$WS_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sync_code',''))" 2>/dev/null || echo "")
+if [[ "$WS_ID" =~ ^[0-9a-f-]{36}$ && "$WS_CODE" =~ ^[a-z0-9]{8}$ ]]; then
+  check "Workspace info (sync code)" "PASS"
+else
+  check "Workspace info (sync code)" "FAIL: $WS_INFO"
+fi
+
+# 1c. Workspace linking from another cookie jar
+if [[ "$WS_CODE" =~ ^[a-z0-9]{8}$ ]]; then
+  WS2_INFO=$(command curl -b "$COOKIE_JAR_2" -c "$COOKIE_JAR_2" -sf "$BASE/api/workspace" 2>/dev/null || echo "")
+  WS2_BEFORE_ID=$(echo "$WS2_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('workspace_id',''))" 2>/dev/null || echo "")
+
+  LINK_RESP=$(command curl -b "$COOKIE_JAR_2" -c "$COOKIE_JAR_2" -sf -X POST "$BASE/api/workspace/link" \
+    -H "Content-Type: application/json" \
+    -d "{\"code\":\"$WS_CODE\"}" 2>/dev/null || echo "")
+  LINK_ID=$(echo "$LINK_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('workspace_id',''))" 2>/dev/null || echo "")
+
+  WS2_AFTER=$(command curl -b "$COOKIE_JAR_2" -c "$COOKIE_JAR_2" -sf "$BASE/api/workspace" 2>/dev/null || echo "")
+  WS2_AFTER_ID=$(echo "$WS2_AFTER" | python3 -c "import sys,json; print(json.load(sys.stdin).get('workspace_id',''))" 2>/dev/null || echo "")
+
+  if [[ "$LINK_ID" == "$WS_ID" && "$WS2_AFTER_ID" == "$WS_ID" ]]; then
+    check "Workspace link by sync code" "PASS"
+  else
+    check "Workspace link by sync code" "FAIL: before=$WS2_BEFORE_ID link=$LINK_ID after=$WS2_AFTER_ID expected=$WS_ID"
+  fi
+else
+  check "Workspace link by sync code" "FAIL: missing source sync code"
+fi
 
 # 2. SPA
 PAGE=$(curl -sf "$BASE/" 2>/dev/null || echo "")

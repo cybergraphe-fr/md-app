@@ -57,6 +57,9 @@ func NewWorkspaceRegistry(basePath string) *WorkspaceRegistry {
 var (
 	codeRe = regexp.MustCompile(`^[a-z0-9]{8}$`)
 	uuidWs = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	errInvalidSyncCode = errors.New("invalid sync code")
+	errUnknownSyncCode = errors.New("unknown sync code")
+	errWorkspaceNotFound = errors.New("workspace not found")
 )
 
 func validWorkspaceID(id string) bool { return uuidWs.MatchString(id) }
@@ -115,13 +118,13 @@ func (wr *WorkspaceRegistry) LookupByCode(code string) (WorkspaceInfo, error) {
 	defer wr.mu.RUnlock()
 
 	if !validSyncCode(code) {
-		return WorkspaceInfo{}, errors.New("invalid sync code")
+		return WorkspaceInfo{}, errInvalidSyncCode
 	}
 
 	b, err := os.ReadFile(wr.codePath(code))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return WorkspaceInfo{}, errors.New("unknown sync code")
+			return WorkspaceInfo{}, errUnknownSyncCode
 		}
 		return WorkspaceInfo{}, err
 	}
@@ -159,7 +162,25 @@ func (wr *WorkspaceRegistry) LookupByWorkspace(wsID string) (WorkspaceInfo, erro
 			return info, nil
 		}
 	}
-	return WorkspaceInfo{}, errors.New("workspace not found")
+	return WorkspaceInfo{}, errWorkspaceNotFound
+}
+
+// EnsureWorkspaceInfo returns a workspace mapping and regenerates a sync code when
+// the workspace cookie exists but its code mapping was lost.
+func (wr *WorkspaceRegistry) EnsureWorkspaceInfo(wsID string) (WorkspaceInfo, bool, error) {
+	info, err := wr.LookupByWorkspace(wsID)
+	if err == nil {
+		return info, false, nil
+	}
+	if !errors.Is(err, errWorkspaceNotFound) {
+		return WorkspaceInfo{}, false, err
+	}
+
+	info, err = wr.Register(wsID)
+	if err != nil {
+		return WorkspaceInfo{}, false, err
+	}
+	return info, true, nil
 }
 
 // generateSyncCode generates an 8-character lowercase alphanumeric code.
@@ -364,10 +385,13 @@ func (h *workspaceHandler) info(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, err := h.registry.LookupByWorkspace(wsID)
+	info, repaired, err := h.registry.EnsureWorkspaceInfo(wsID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "workspace lookup failed")
 		return
+	}
+	if repaired {
+		slog.Warn("workspace mapping repaired", "workspace_id", wsID, "sync_code", info.SyncCode)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -395,7 +419,11 @@ func (h *workspaceHandler) link(w http.ResponseWriter, r *http.Request) {
 
 	info, err := h.registry.LookupByCode(code)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "unknown sync code")
+		if errors.Is(err, errUnknownSyncCode) || errors.Is(err, errInvalidSyncCode) {
+			writeError(w, http.StatusNotFound, "unknown sync code")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "workspace lookup failed")
 		return
 	}
 

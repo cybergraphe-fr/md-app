@@ -33,6 +33,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 | **Themes** | Light / Dark, auto-detects system preference, persists in localStorage |
 | **View modes** | Split (editor + preview), Editor only, Preview only |
 | **Sidebar** | Collapsible file manager panel — toggle via toolbar button, state persisted in localStorage |
+| **Workspace sync** | Device-to-device workspace linking via 8-character sync code from the Synchroniser modal; includes retry UI and backend self-healing if a workspace code mapping is missing |
 | **Export** | HTML, PDF (via Pandoc + WeasyPrint), DOCX, ODT, EPUB, LaTeX, RST, AsciiDoc, Textile, MediaWiki, Plain text |
 | **PDF margins** | Standard (2.5 cm), Narrow (1.5 cm), Wide (3.5 cm), or custom (per-axis in cm) — selectable in export modal |
 | **PDF header/footer** | Optional custom header and footer text in export modal; built-in pagination is now current/total (example: `9/14`) |
@@ -151,6 +152,8 @@ Base URL: `https://your-domain/api`
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Health check |
+| `GET` | `/api/workspace` | Return current workspace info `{workspace_id, sync_code, created_at}` |
+| `POST` | `/api/workspace/link` | Link current browser workspace to an existing one via `{code}` |
 | `GET` | `/api/files` | List all documents |
 | `POST` | `/api/files` | Create a document `{name, content, path?}` |
 | `GET` | `/api/files/:id` | Get document with content |

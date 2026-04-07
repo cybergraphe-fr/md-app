@@ -6,17 +6,31 @@
   let { isOpen = $bindable(false) } = $props<{ isOpen: boolean }>();
 
   let syncCode = $state('');
+  let syncStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  let syncError = $state('');
   let linkCode = $state('');
   let status = $state<'idle' | 'loading' | 'success' | 'error'>('idle');
   let message = $state('');
   let copied = $state(false);
+  let fetchRequestId = 0;
 
   async function fetchInfo(): Promise<void> {
+    const reqID = ++fetchRequestId;
+    syncStatus = 'loading';
+    syncError = '';
+    syncCode = '';
     try {
       const info = await api.getWorkspace();
-      syncCode = info.sync_code;
+      if (reqID !== fetchRequestId) return;
+      const code = (info.sync_code ?? '').trim().toLowerCase();
+      if (!/^[a-z0-9]{8}$/.test(code)) throw new Error('invalid sync code payload');
+      syncCode = code;
+      syncStatus = 'ready';
     } catch {
-      syncCode = '—';
+      if (reqID !== fetchRequestId) return;
+      syncCode = '--------';
+      syncStatus = 'error';
+      syncError = 'Code indisponible temporairement. Reessayez.';
     }
   }
 
@@ -40,14 +54,26 @@
     }
   }
 
-  function copyCode(): void {
-    navigator.clipboard.writeText(syncCode);
-    copied = true;
-    setTimeout(() => (copied = false), 1500);
+  async function copyCode(): Promise<void> {
+    if (syncStatus !== 'ready' || !syncCode) return;
+    try {
+      await navigator.clipboard.writeText(syncCode);
+      copied = true;
+      setTimeout(() => (copied = false), 1500);
+    } catch {
+      syncError = 'Impossible de copier le code pour le moment.';
+    }
   }
 
   $effect(() => {
-    if (isOpen) fetchInfo();
+    if (isOpen) {
+      void fetchInfo();
+      return;
+    }
+    fetchRequestId++;
+    syncStatus = 'idle';
+    syncError = '';
+    copied = false;
   });
 </script>
 
@@ -69,12 +95,18 @@
       <section>
         <p class="section-label" id="sync-code-label">Votre code de synchronisation</p>
         <div class="code-row" aria-labelledby="sync-code-label">
-          <code class="sync-code">{syncCode}</code>
-          <button class="btn-icon" title="Copier" onclick={copyCode}>
+          <code class="sync-code" class:placeholder={syncStatus !== 'ready'}>
+            {syncStatus === 'loading' ? 'chargement…' : (syncCode || '--------')}
+          </code>
+          <button class="btn-icon" title="Copier" disabled={syncStatus !== 'ready'} onclick={copyCode}>
             {#if copied}<Check size={14} />{:else}<Copy size={14} />{/if}
           </button>
         </div>
         <p class="hint">Entrez ce code sur un autre appareil pour retrouver vos fichiers.</p>
+        {#if syncStatus === 'error'}
+          <p class="status error">{syncError}</p>
+          <button class="btn-secondary" onclick={() => void fetchInfo()}>Reessayer</button>
+        {/if}
       </section>
 
       <hr />
@@ -166,6 +198,12 @@
     color: var(--accent, #6366f1);
   }
 
+  .sync-code.placeholder {
+    color: var(--text-secondary, #a0a0b8);
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
   .hint {
     margin: 0.3rem 0 0;
     font-size: 0.75rem;
@@ -215,6 +253,26 @@
     color: var(--text-secondary, #a0a0b8);
     cursor: pointer;
     padding: 4px;
+  }
+
+  .btn-icon:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    margin-top: 0.45rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary, #a0a0b8);
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+
+  .btn-secondary:hover {
+    color: var(--text-primary, #e0e0f0);
   }
 
   .status {
