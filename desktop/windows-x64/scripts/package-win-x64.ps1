@@ -202,13 +202,37 @@ if (-not $SkipMsi) {
 "@
   Set-Content -Path $productWxs -Value $productWxsContent -Encoding UTF8
 
-  Invoke-ExternalOrFail -Tool $wix["Heat"] -Args @("dir", $BundleDir, "-nologo", "-cg", "AppFiles", "-dr", "INSTALLDIR", "-srd", "-scom", "-sreg", "-sfrag", "-gg", "-var", "var.SourceDir", "-out", $appFilesWxs) -Step "WiX heat"
-  Invoke-ExternalOrFail -Tool $wix["Candle"] -Args @("-nologo", "-arch", "x64", "-dSourceDir=$BundleDir", "-out", $productWixobj, $productWxs) -Step "WiX candle (product)"
-  Invoke-ExternalOrFail -Tool $wix["Candle"] -Args @("-nologo", "-arch", "x64", "-dSourceDir=$BundleDir", "-out", $appFilesWixobj, $appFilesWxs) -Step "WiX candle (files)"
+  & $wix["Heat"] dir "$BundleDir" -nologo -cg AppFiles -dr INSTALLDIR -srd -scom -sreg -sfrag -gg -var var.SourceDir -out "$appFilesWxs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "WiX heat failed with exit code $LASTEXITCODE"
+  }
+  if (-not (Test-Path $appFilesWxs)) {
+    throw "WiX heat did not produce expected file: $appFilesWxs"
+  }
+
+  & $wix["Candle"] -nologo -arch x64 "-dSourceDir=$BundleDir" -out "$productWixobj" "$productWxs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "WiX candle (product) failed with exit code $LASTEXITCODE"
+  }
+  if (-not (Test-Path $productWixobj)) {
+    throw "WiX candle (product) did not produce expected file: $productWixobj"
+  }
+
+  & $wix["Candle"] -nologo -arch x64 "-dSourceDir=$BundleDir" -out "$appFilesWixobj" "$appFilesWxs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "WiX candle (files) failed with exit code $LASTEXITCODE"
+  }
+  if (-not (Test-Path $appFilesWixobj)) {
+    throw "WiX candle (files) did not produce expected file: $appFilesWixobj"
+  }
+
   if (Test-Path $MsiPath) {
     Remove-Item -Path $MsiPath -Force
   }
-  Invoke-ExternalOrFail -Tool $wix["Light"] -Args @("-nologo", "-ext", "WixUIExtension", "-cultures:en-us", "-out", $MsiPath, $productWixobj, $appFilesWixobj) -Step "WiX light"
+  & $wix["Light"] -nologo -ext WixUIExtension -cultures:en-us -out "$MsiPath" "$productWixobj" "$appFilesWixobj"
+  if ($LASTEXITCODE -ne 0) {
+    throw "WiX light failed with exit code $LASTEXITCODE"
+  }
 
   if (-not (Test-Path $MsiPath)) {
     Write-Error "MSI artifact was not produced: $MsiPath"
