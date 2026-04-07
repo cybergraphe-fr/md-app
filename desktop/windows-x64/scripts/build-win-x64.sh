@@ -3,6 +3,8 @@ set -euo pipefail
 
 VERSION="${1:-0.1.0-dev}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+DESKTOP_PROJECT_DIR="${ROOT_DIR}/cmd/desktop"
+DESKTOP_BIN_DIR="${DESKTOP_PROJECT_DIR}/build/bin"
 
 find_wails() {
   if command -v wails >/dev/null 2>&1; then
@@ -40,17 +42,24 @@ if [[ -n "${MD_DESKTOP_REMOTE_API_URL:-}" ]]; then
 fi
 
 echo "[desktop] building Wails app for windows/amd64"
-"$WAILS_BIN" build \
-  -tags desktop \
-  -platform windows/amd64 \
-  -clean \
-  -trimpath \
-  -ldflags "$LDFLAGS"
+(
+  cd "$DESKTOP_PROJECT_DIR"
+  "$WAILS_BIN" build \
+    -tags desktop \
+    -platform windows/amd64 \
+    -s \
+    -clean \
+    -trimpath \
+    -ldflags "$LDFLAGS"
+)
 
-if [[ ! -f build/bin/MD.exe ]]; then
-  echo "error: expected artifact build/bin/MD.exe was not produced" >&2
+if [[ ! -f "${DESKTOP_BIN_DIR}/MD.exe" ]]; then
+  echo "error: expected artifact ${DESKTOP_BIN_DIR}/MD.exe was not produced" >&2
   exit 1
 fi
+
+mkdir -p build/bin
+cp "${DESKTOP_BIN_DIR}/MD.exe" build/bin/MD.exe
 
 mkdir -p build/bin/web
 if command -v rsync >/dev/null 2>&1; then

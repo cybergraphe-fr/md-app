@@ -5,6 +5,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
+$DesktopProjectDir = Join-Path $RootDir "cmd\desktop"
+$DesktopBinDir = Join-Path $DesktopProjectDir "build\bin"
 
 function Get-WailsBin {
   $wails = Get-Command wails -ErrorAction SilentlyContinue
@@ -38,17 +40,28 @@ if ($env:MD_DESKTOP_REMOTE_API_URL) {
 }
 
 Write-Host "[desktop] building Wails app for windows/amd64"
-& $wailsBin build `
-  -tags desktop `
-  -platform windows/amd64 `
-  -clean `
-  -trimpath `
-  -ldflags $ldflags
+$previousLocation = Get-Location
+Set-Location $DesktopProjectDir
+try {
+  & $wailsBin build `
+    -tags desktop `
+    -platform windows/amd64 `
+    -s `
+    -clean `
+    -trimpath `
+    -ldflags $ldflags
+} finally {
+  Set-Location $previousLocation
+}
 
 $exePath = Join-Path $RootDir "build\bin\MD.exe"
-if (-not (Test-Path $exePath)) {
-  Write-Error "Expected artifact missing: $exePath"
+$builtExePath = Join-Path $DesktopBinDir "MD.exe"
+if (-not (Test-Path $builtExePath)) {
+  Write-Error "Expected artifact missing: $builtExePath"
 }
+
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $exePath) | Out-Null
+Copy-Item -Path $builtExePath -Destination $exePath -Force
 
 $targetWebDir = Join-Path $RootDir "build\bin\web"
 New-Item -ItemType Directory -Force -Path $targetWebDir | Out-Null

@@ -4,6 +4,9 @@ set -euo pipefail
 VERSION="${1:-0.1.0-dev}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 APP_NAME="${2:-MD}"
+DESKTOP_PROJECT_DIR="${ROOT_DIR}/cmd/desktop"
+DESKTOP_BIN_DIR="${DESKTOP_PROJECT_DIR}/build/bin"
+MAC_PLATFORMS="${MD_DESKTOP_MACOS_PLATFORMS:-darwin/arm64}"
 
 find_wails() {
 	if command -v wails >/dev/null 2>&1; then
@@ -43,20 +46,29 @@ if [[ -n "${MD_DESKTOP_REMOTE_API_URL:-}" ]]; then
 	LDFLAGS+=" -X main.RemoteAPIURL=${MD_DESKTOP_REMOTE_API_URL}"
 fi
 
-echo "[desktop] building Wails app for darwin/amd64,darwin/arm64"
-"$WAILS_BIN" build \
-	-tags desktop \
-	-platform darwin/amd64,darwin/arm64 \
-	-clean \
-	-trimpath \
-	-ldflags "$LDFLAGS"
+echo "[desktop] building Wails app for ${MAC_PLATFORMS}"
+(
+	cd "$DESKTOP_PROJECT_DIR"
+	"$WAILS_BIN" build \
+		-tags desktop \
+		-platform "$MAC_PLATFORMS" \
+		-s \
+		-clean \
+		-trimpath \
+		-ldflags "$LDFLAGS"
+)
 
+SOURCE_APP_BUNDLE="${DESKTOP_BIN_DIR}/${APP_NAME}.app"
 APP_BUNDLE="build/bin/${APP_NAME}.app"
-if [[ ! -d "$APP_BUNDLE/Contents/Resources" ]]; then
-	echo "error: app bundle not found at $APP_BUNDLE" >&2
+if [[ ! -d "$SOURCE_APP_BUNDLE/Contents/Resources" ]]; then
+	echo "error: app bundle not found at $SOURCE_APP_BUNDLE" >&2
 	echo "hint: run this packaging target on macOS with the required toolchain/signing setup" >&2
 	exit 1
 fi
+
+mkdir -p build/bin
+rm -rf "$APP_BUNDLE"
+cp -R "$SOURCE_APP_BUNDLE" "$APP_BUNDLE"
 
 mkdir -p "$APP_BUNDLE/Contents/Resources/web"
 if command -v rsync >/dev/null 2>&1; then

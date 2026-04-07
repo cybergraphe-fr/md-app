@@ -33,7 +33,7 @@ This preserves the current backend and frontend architecture with minimal diverg
 From repository root:
 
 - Windows x64: `bash desktop/windows-x64/scripts/build-win-x64.sh`
-- macOS amd64 + arm64: `bash desktop/macos/scripts/build-macos.sh`
+- macOS (default arm64, override with `MD_DESKTOP_MACOS_PLATFORMS`): `bash desktop/macos/scripts/build-macos.sh`
 - Windows installers (exe/zip/msi, on Windows host): `powershell -ExecutionPolicy Bypass -File desktop/windows-x64/scripts/package-win-x64.ps1 -Version "0.1.0-dev" -AppName "MD"`
 - macOS installers (dmg/pkg/zip, on macOS host): `bash desktop/macos/scripts/package-macos-installers.sh "0.1.0-dev" "MD"`
 

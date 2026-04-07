@@ -19,7 +19,8 @@ Optional (connected sync with web backend):
 
 - Set `MD_DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr` before build to embed remote sync API target.
 
-The script currently targets `darwin/amd64,darwin/arm64`.
+The script defaults to `darwin/arm64` (aligned with `macos-14` runners).
+Override target list when needed with `MD_DESKTOP_MACOS_PLATFORMS`.
 For native notarized releases, run from macOS with signing credentials configured.
 
 Installer outputs are written to `build/releases/macos/`:
