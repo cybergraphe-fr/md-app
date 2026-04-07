@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -47,9 +48,17 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 	r.Get("/health", handleHealth(version))
 	r.Get("/ready", handleHealth(version)) // k8s readiness compat
 
+	webRoot := cfg.WebRoot
+	if webRoot == "" {
+		webRoot = "/app/web"
+	}
+	assetsDir := filepath.Join(webRoot, "assets")
+	fontsDir := filepath.Join(webRoot, "fonts")
+	indexFile := filepath.Join(webRoot, "index.html")
+
 	// Static frontend assets (served from embedded filesystem or /app/web)
-	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("/app/web/assets"))))
-	r.Handle("/fonts/*", http.StripPrefix("/fonts/", http.FileServer(http.Dir("/app/web/fonts"))))
+	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
+	r.Handle("/fonts/*", http.StripPrefix("/fonts/", http.FileServer(http.Dir(fontsDir))))
 
 	// Auth endpoints (always public, handled before OIDC middleware)
 	if oidcCfg != nil {
@@ -136,7 +145,7 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 
 	// SPA catch-all – serve index.html for all other routes
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "/app/web/index.html")
+		http.ServeFile(w, r, indexFile)
 	})
 
 	return r

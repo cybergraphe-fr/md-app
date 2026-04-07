@@ -118,6 +118,28 @@ npm install
 npm run dev      # starts on http://localhost:5173 (proxies /api → localhost:8080)
 ```
 
+### Desktop bootstrap (Windows x64 + macOS)
+
+Desktop targets are scaffolded under `desktop/` with a Wails-based shell.
+
+```bash
+# install desktop tooling
+make desktop-install-tools
+
+# first binary outputs per target
+make desktop-bin-win-x64
+make desktop-bin-macos-amd64
+make desktop-bin-macos-arm64
+
+# full packaging scripts (host/toolchain dependent)
+make desktop-package-win-x64
+make desktop-package-macos
+```
+
+Notes:
+- macOS package generation must be run on macOS for final `.app` + signing/notarization.
+- Windows installer/signing should be finalized on Windows.
+
 ---
 
 ## Configuration
@@ -127,6 +149,7 @@ All configuration is done via **environment variables**.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `MD_HTTP_ADDR` | `:8080` | HTTP listen address |
+| `MD_WEB_ROOT` | `/app/web` | Path to built frontend assets (`index.html`, `assets/`, `fonts/`) |
 | `MD_STORAGE_PATH` | `/data` | Root directory for file storage |
 | `MD_REDIS_URL` | _(empty)_ | Redis URL (disable cache if empty) |
 | `MD_API_KEY` | _(empty)_ | Optional API key (`X-API-Key` or `Authorization: Bearer` header). Empty = no auth |

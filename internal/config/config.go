@@ -12,6 +12,7 @@ import (
 type Config struct {
 	// HTTP
 	HTTPAddr string
+	WebRoot  string
 
 	// Storage
 	StoragePath string
@@ -78,6 +79,7 @@ func buildRedisURL() string {
 func Load() (*Config, error) {
 	cfg := &Config{
 		HTTPAddr:         getEnv("MD_HTTP_ADDR", ":8080"),
+		WebRoot:          getEnv("MD_WEB_ROOT", "/app/web"),
 		StoragePath:      getEnv("MD_STORAGE_PATH", "/data/files"),
 		RedisURL:         buildRedisURL(),
 		APIKey:           getSecretOrEnv("api_key", "MD_API_KEY", ""),
