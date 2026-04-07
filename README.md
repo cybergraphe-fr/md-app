@@ -169,7 +169,7 @@ All configuration is done via **environment variables**.
 | `MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL` | `/downloads/MD-latest-windows-x64.msi` | Public download URL for Windows x64 desktop artifact |
 | `MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL` | `/downloads/MD-latest-macos.dmg` | Public download URL for macOS Apple Silicon artifact |
 | `MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL` | `/downloads/MD-latest-macos.dmg` | Public download URL for macOS Intel artifact |
-| `MD_DESKTOP_DOWNLOAD_LINUX_X64_URL` | `/downloads/MD-latest-linux-x64.tar.gz` | Public download URL for Linux x64 artifact |
+| `MD_DESKTOP_DOWNLOAD_LINUX_X64_URL` | _(empty)_ | Public download URL for Linux x64 artifact (optional) |
 | `MD_DESKTOP_DOWNLOAD_PAGE_URL` | `/downloads/` | Optional generic desktop downloads page fallback |
 | `MD_DESKTOP_DOWNLOADS_DIR` | `MD_STORAGE_PATH/downloads` | Directory served by `/downloads/*` to publish installer files |
 | `MD_DESKTOP_REMOTE_API_URL` | _(empty)_ | Optional remote API URL used by desktop build/runtime for connected web sync mode |

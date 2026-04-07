@@ -2,6 +2,7 @@
 
 | Date | Heure | Description | Fichier | Statut |
 |---|---|---|---|---|
+| 2026-04-07 | 17:32 | Installateurs desktop + URLs web: packaging EXE/DMG/PKG, integration workflow, liaison des URLs md.cybergraphe.fr dans la vue web | [2026-04-07_1732_desktop_installers_and_web_urls.md](2026-04-07_1732_desktop_installers_and_web_urls.md) | ✅ Termine |
 | 2026-04-07 | 16:14 | Typecheck hardening TS config: correction `allowImportingTsExtensions` pour supprimer l erreur IDE et revalidation frontend complete | [2026-04-07_1614_tsconfig_typecheck_hardening.md](2026-04-07_1614_tsconfig_typecheck_hardening.md) | ✅ Termine |
 | 2026-04-07 | 15:14 | Web desktop download + sync bridge: bouton telechargement OS-aware, alignement synchronisation web/desktop, documentation et release sequence | [2026-04-07_1514_web_desktop_download_sync_release.md](2026-04-07_1514_web_desktop_download_sync_release.md) | ✅ Termine |
 | 2026-04-07 | 14:57 | Pipeline desktop signature/notarization: signature Windows x64, notarization macOS, workflow CI dedie, cibles Makefile et documentation operateur | [2026-04-07_1457_desktop_signing_notarization_pipeline.md](2026-04-07_1457_desktop_signing_notarization_pipeline.md) | ✅ Termine |
