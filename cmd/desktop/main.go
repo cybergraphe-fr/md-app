@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 
+	"md/cmd/desktop/webdist"
 	"md/internal/desktop"
 
 	"github.com/wailsapp/wails/v2"
@@ -25,7 +26,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	runtime, err := desktop.Start(Version, RemoteAPIURL)
+	runtime, err := desktop.Start(Version, RemoteAPIURL, webdist.Assets)
 	if err != nil {
 		slog.Error("failed to start desktop runtime", "error", err)
 		os.Exit(1)

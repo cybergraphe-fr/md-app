@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -31,7 +32,10 @@ type Runtime struct {
 }
 
 // Start boots the local HTTP stack consumed by the desktop webview.
-func Start(version, defaultRemoteAPI string) (*Runtime, error) {
+// embeddedWeb is an optional embedded filesystem containing the built frontend
+// (with a "dist" top-level directory). When the frontend cannot be found on
+// disk, the embedded FS is used instead, making the binary fully portable.
+func Start(version, defaultRemoteAPI string, embeddedWeb fs.FS) (*Runtime, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
@@ -41,7 +45,9 @@ func Start(version, defaultRemoteAPI string) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	webRoot, err := resolveWebRoot()
+
+	// Resolve web assets: try on-disk first, then fall back to embedded FS.
+	webRoot, webFS, err := resolveWebAssets(embeddedWeb)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +71,7 @@ func Start(version, defaultRemoteAPI string) (*Runtime, error) {
 	)
 
 	if remoteAPI != "" {
-		router, err = newConnectedHandler(cfg.WebRoot, remoteAPI)
+		router, err = newConnectedHandler(cfg.WebRoot, remoteAPI, webFS)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +152,7 @@ func validateRemoteAPIURL(raw string) (string, error) {
 	return parsed.String(), nil
 }
 
-func newConnectedHandler(webRoot, remoteAPI string) (http.Handler, error) {
+func newConnectedHandler(webRoot, remoteAPI string, webFS fs.FS) (http.Handler, error) {
 	target, err := url.Parse(remoteAPI)
 	if err != nil {
 		return nil, fmt.Errorf("parse desktop remote api %q: %w", remoteAPI, err)
@@ -167,19 +173,36 @@ func newConnectedHandler(webRoot, remoteAPI string) (http.Handler, error) {
 		writeDesktopProxyError(w)
 	}
 
-	assetsDir := filepath.Join(webRoot, "assets")
-	fontsDir := filepath.Join(webRoot, "fonts")
-	indexFile := filepath.Join(webRoot, "index.html")
-
 	mux := http.NewServeMux()
 	mux.Handle("/api/", proxy)
 	mux.Handle("/health", proxy)
 	mux.Handle("/ready", proxy)
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
-	mux.Handle("/fonts/", http.StripPrefix("/fonts/", http.FileServer(http.Dir(fontsDir))))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, indexFile)
-	})
+
+	// Serve frontend from embedded FS when available, otherwise from disk.
+	if webFS != nil {
+		fileServer := http.FileServer(http.FS(webFS))
+		mux.Handle("/assets/", fileServer)
+		mux.Handle("/fonts/", fileServer)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			f, err := webFS.Open("index.html")
+			if err != nil {
+				http.Error(w, "frontend not found", http.StatusInternalServerError)
+				return
+			}
+			defer f.Close()
+			stat, _ := f.Stat()
+			http.ServeContent(w, r, "index.html", stat.ModTime(), f.(readSeeker))
+		})
+	} else {
+		assetsDir := filepath.Join(webRoot, "assets")
+		fontsDir := filepath.Join(webRoot, "fonts")
+		indexFile := filepath.Join(webRoot, "index.html")
+		mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
+		mux.Handle("/fonts/", http.StripPrefix("/fonts/", http.FileServer(http.Dir(fontsDir))))
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, indexFile)
+		})
+	}
 
 	return withDesktopProxyBodyLimit(mux), nil
 }
@@ -243,6 +266,12 @@ func stripSecureCookieFlag(raw string) string {
 	return strings.Join(filtered, ";")
 }
 
+// readSeeker combines io.ReadSeeker for http.ServeContent from embed.
+type readSeeker = interface {
+	Read(p []byte) (n int, err error)
+	Seek(offset int64, whence int) (int64, error)
+}
+
 func resolveStoragePath() (string, error) {
 	if explicit := os.Getenv("MD_DESKTOP_STORAGE"); explicit != "" {
 		return explicit, nil
@@ -254,14 +283,20 @@ func resolveStoragePath() (string, error) {
 	return filepath.Join(base, defaultDesktopDataDir, "files"), nil
 }
 
-func resolveWebRoot() (string, error) {
+// resolveWebAssets returns an on-disk web root path and/or an fs.FS for the
+// built frontend. It checks the filesystem first (for development), then falls
+// back to the embedded FS from the webdist package (for portable builds).
+// At least one must be available.
+func resolveWebAssets(embeddedWeb fs.FS) (string, fs.FS, error) {
+	// 1. Explicit env var always wins
 	if explicit := os.Getenv("MD_WEB_ROOT"); explicit != "" {
 		if hasIndex(explicit) {
-			return explicit, nil
+			return explicit, nil, nil
 		}
-		return "", fmt.Errorf("MD_WEB_ROOT does not contain index.html: %s", explicit)
+		return "", nil, fmt.Errorf("MD_WEB_ROOT does not contain index.html: %s", explicit)
 	}
 
+	// 2. Try standard filesystem locations
 	candidates := []string{}
 	if exePath, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exePath)
@@ -277,11 +312,23 @@ func resolveWebRoot() (string, error) {
 
 	for _, candidate := range candidates {
 		if hasIndex(candidate) {
-			return candidate, nil
+			return candidate, nil, nil
 		}
 	}
 
-	return "", fmt.Errorf("unable to resolve web root for desktop runtime (checked: %v)", candidates)
+	// 3. Fall back to embedded frontend (portable single-binary mode)
+	if embeddedWeb != nil {
+		sub, err := fs.Sub(embeddedWeb, "dist")
+		if err == nil {
+			if f, err2 := sub.Open("index.html"); err2 == nil {
+				f.Close()
+				slog.Info("using embedded web assets (portable mode)")
+				return "", sub, nil
+			}
+		}
+	}
+
+	return "", nil, fmt.Errorf("unable to resolve web root for desktop runtime (checked filesystem: %v, embedded: available=%v)", candidates, embeddedWeb != nil)
 }
 
 func hasIndex(dir string) bool {

@@ -86,7 +86,7 @@ services:
       # ⚠️  CHANGE THESE to your own domain!
       MD_APP_URL: "https://${MD_DOMAIN:-md.example.com}"
       MD_CORS_ORIGINS: "https://${MD_DOMAIN:-md.example.com}"
-      MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL: "${MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL:-/downloads/MD-latest-windows-x64.msi}"
+      MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL: "${MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL:-/downloads/MD-latest-windows-x64.exe}"
       MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL: "${MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL:-/downloads/MD-latest-macos.dmg}"
       MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL: "${MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL:-/downloads/MD-latest-macos.dmg}"
       MD_DESKTOP_DOWNLOAD_LINUX_X64_URL: "${MD_DESKTOP_DOWNLOAD_LINUX_X64_URL:-}"

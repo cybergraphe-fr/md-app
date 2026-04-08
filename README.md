@@ -147,7 +147,7 @@ make desktop-package-macos DESKTOP_REMOTE_API_URL=https://md.cybergraphe.fr
 
 Notes:
 - macOS package generation must be run on macOS for final `.app` + signing/notarization.
-- Windows MSI packaging/signing should be finalized on Windows (PowerShell + WiX).
+- Windows EXE signing can also be done locally on the NAS via `osslsigncode` in Docker (see `scripts/sign-exe.sh`).
 - If `DESKTOP_REMOTE_API_URL` (or `MD_DESKTOP_REMOTE_API_URL`) is set during packaging, desktop runs in connected mode and synchronizes against the remote web backend.
 - Publish generated installers under `MD_DESKTOP_DOWNLOADS_DIR` (default `/data/downloads`) to expose them on `https://<domain>/downloads/...`.
 
@@ -166,7 +166,7 @@ All configuration is done via **environment variables**.
 | `MD_API_KEY` | _(empty)_ | Optional API key (`X-API-Key` or `Authorization: Bearer` header). Empty = no auth |
 | `MD_APP_URL` | `http://localhost:8080` | Public URL of the app |
 | `MD_CORS_ORIGINS` | `MD_APP_URL` | Comma-separated allowed CORS origins |
-| `MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL` | `/downloads/MD-latest-windows-x64.msi` | Public download URL for Windows x64 desktop artifact |
+| `MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL` | `/downloads/MD-latest-windows-x64.exe` | Public download URL for Windows x64 desktop artifact |
 | `MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL` | `/downloads/MD-latest-macos.dmg` | Public download URL for macOS Apple Silicon artifact |
 | `MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL` | `/downloads/MD-latest-macos.dmg` | Public download URL for macOS Intel artifact |
 | `MD_DESKTOP_DOWNLOAD_LINUX_X64_URL` | _(empty)_ | Public download URL for Linux x64 artifact (optional) |
@@ -285,7 +285,7 @@ Two workflows are available in `.github/workflows/`:
 
 - `ci.yml`: quality gate on push/PR (`go vet`, Go build/tests, Svelte type-check, frontend build, Docker build)
 - `cd-prod.yml`: validation + production deploy over SSH on `main` and manual trigger
-- `desktop-release.yml`: manual desktop pipeline for Windows signing + MSI packaging and macOS notarization + DMG/PKG packaging (inputs: `version`, `sign_windows`, `notarize_macos`, `sync_api_base_url`)
+- `desktop-release.yml`: manual desktop pipeline for Windows signing + EXE packaging and macOS notarization + DMG/PKG packaging (inputs: `version`, `sign_windows`, `notarize_macos`, `sync_api_base_url`)
 
 To enable automated production deployment, configure these GitHub secrets:
 
@@ -308,7 +308,7 @@ Desktop workflow secrets:
 Desktop workflow signing behavior:
 
 - If `sign_windows=true`, the workflow now fails if `MD_WIN_CERT_PFX_B64` or `MD_WIN_CERT_PASSWORD` is missing.
-- MSI artifacts are signed after packaging when signing is enabled.
+- EXE artifacts are signed after packaging when signing is enabled.
 - To produce unsigned internal test artifacts, run the workflow with `sign_windows=false`.
 
 Desktop workflow variable (optional):

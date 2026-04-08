@@ -51,7 +51,7 @@ services:
       # ── URLs ──
       MD_APP_URL: "${MD_APP_URL:-http://localhost:8080}"
       MD_CORS_ORIGINS: "${MD_CORS_ORIGINS:-*}"      # * is fine for local dev
-      MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL: "${MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL:-/downloads/MD-latest-windows-x64.msi}"
+      MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL: "${MD_DESKTOP_DOWNLOAD_WINDOWS_X64_URL:-/downloads/MD-latest-windows-x64.exe}"
       MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL: "${MD_DESKTOP_DOWNLOAD_MACOS_ARM64_URL:-/downloads/MD-latest-macos.dmg}"
       MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL: "${MD_DESKTOP_DOWNLOAD_MACOS_AMD64_URL:-/downloads/MD-latest-macos.dmg}"
       MD_DESKTOP_DOWNLOAD_LINUX_X64_URL: "${MD_DESKTOP_DOWNLOAD_LINUX_X64_URL:-}"
