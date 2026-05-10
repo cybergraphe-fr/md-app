@@ -2,6 +2,7 @@
 
 **Date**: 2026-05-10
 **Heure**: 04:00
+**Fin**: 2026-05-10 04:04
 **Contexte**: Ajout d une navigation TOC auto-generee dans la sidebar gauche pour documents longs.
 **Objectif**: Permettre de naviguer rapidement via les titres H1-H6 du document actif, avec scroll cible dans le preview et indication visuelle de section active.
 
@@ -28,6 +29,7 @@
 - 04:02 - Integration Sidebar: bascule Files/TOC, liste TOC indentee par niveau, lien cliquable vers section, mise en evidence section active.
 - 04:02 - Tests unitaires complets passes (vitest), typecheck Svelte OK, build frontend OK.
 - 04:03 - Documentation README mise a jour avec la nouvelle capacite TOC sidebar.
+- 04:04 - Commit `7b5f18c0` cree et pousse sur `main`.
 
 ## Audit x10
 1. Correctness: verification stricte de la parite IDs preview/TOC via slugger partage. Amelioration appliquee: suppression de la generation locale divergente.
@@ -63,4 +65,4 @@
 - Implementation: terminee
 - Tests: OK
 - Build: OK
-- Push: en cours
+- Push: OK
