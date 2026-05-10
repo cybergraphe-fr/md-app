@@ -48,8 +48,58 @@ export interface FontConfig {
 }
 
 const defaultFontConfig: FontConfig = { headings: 'Lora', body: 'Lora' };
+type HeaderFooterAlign = 'left' | 'center' | 'right';
+
+export interface LayoutConfig {
+  h1UnderlineColor: string;
+  headerAlign: HeaderFooterAlign;
+  footerAlign: HeaderFooterAlign;
+}
+
+const defaultLayoutConfig: LayoutConfig = {
+  h1UnderlineColor: '#2563eb',
+  headerAlign: 'center',
+  footerAlign: 'left',
+};
+
+const layoutColorPattern = /^#[0-9a-fA-F]{6}$/;
 
 export const fontConfig = writable<FontConfig>({ ...defaultFontConfig });
+export const layoutConfig = writable<LayoutConfig>({ ...defaultLayoutConfig });
+
+function isHeaderFooterAlign(value: unknown): value is HeaderFooterAlign {
+  return value === 'left' || value === 'center' || value === 'right';
+}
+
+function sanitizeLayoutColor(value: unknown): string {
+  if (typeof value !== 'string') return defaultLayoutConfig.h1UnderlineColor;
+  const trimmed = value.trim();
+  if (layoutColorPattern.test(trimmed)) return trimmed.toLowerCase();
+  return defaultLayoutConfig.h1UnderlineColor;
+}
+
+function normalizeLayoutConfig(raw: unknown): LayoutConfig {
+  if (!raw || typeof raw !== 'object') return { ...defaultLayoutConfig };
+  const source = raw as Partial<LayoutConfig>;
+  return {
+    h1UnderlineColor: sanitizeLayoutColor(source.h1UnderlineColor),
+    headerAlign: isHeaderFooterAlign(source.headerAlign) ? source.headerAlign : defaultLayoutConfig.headerAlign,
+    footerAlign: isHeaderFooterAlign(source.footerAlign) ? source.footerAlign : defaultLayoutConfig.footerAlign,
+  };
+}
+
+function applyLayoutConfig(cfg: LayoutConfig): void {
+  document.documentElement.style.setProperty('--doc-h1-underline', cfg.h1UnderlineColor);
+}
+
+export function setLayoutConfig<K extends keyof LayoutConfig>(key: K, value: LayoutConfig[K]): void {
+  layoutConfig.update((cfg) => {
+    const next = normalizeLayoutConfig({ ...cfg, [key]: value });
+    localStorage.setItem('md-layout-config', JSON.stringify(next));
+    applyLayoutConfig(next);
+    return next;
+  });
+}
 
 // ---- Derived ----
 
@@ -270,6 +320,22 @@ export function initTheme(): void {
   } else {
     const savedFont = localStorage.getItem('md-font');
     if (savedFont) setPreviewFont(savedFont);
+  }
+
+  const savedLayoutConfig = localStorage.getItem('md-layout-config');
+  if (savedLayoutConfig) {
+    try {
+      const parsed = JSON.parse(savedLayoutConfig);
+      const cfg = normalizeLayoutConfig(parsed);
+      layoutConfig.set(cfg);
+      applyLayoutConfig(cfg);
+    } catch {
+      layoutConfig.set({ ...defaultLayoutConfig });
+      applyLayoutConfig(defaultLayoutConfig);
+    }
+  } else {
+    layoutConfig.set({ ...defaultLayoutConfig });
+    applyLayoutConfig(defaultLayoutConfig);
   }
 
   // Restore sidebar preference (default: collapsed)

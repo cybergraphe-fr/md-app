@@ -151,13 +151,18 @@ type pdfMargins struct {
 }
 
 type pdfPageDecor struct {
-	Header string
-	Footer string
+	Header           string
+	Footer           string
+	HeaderAlign      string
+	FooterAlign      string
+	H1UnderlineColor string
 }
 
 const maxPDFDecorLength = 120
+const defaultPDFDecorAlign = "center"
 
 var cssContentEscaper = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
+var pdfHexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 var marginPresets = map[string]pdfMargins{
 	"standard": {"2.2cm", "2.5cm", "2.5cm", "2.5cm"},
@@ -194,9 +199,30 @@ func asCM(v string) string {
 
 func parsePageDecor(r *http.Request) pdfPageDecor {
 	return pdfPageDecor{
-		Header: sanitizePDFDecor(r.URL.Query().Get("header")),
-		Footer: sanitizePDFDecor(r.URL.Query().Get("footer")),
+		Header:           sanitizePDFDecor(r.URL.Query().Get("header")),
+		Footer:           sanitizePDFDecor(r.URL.Query().Get("footer")),
+		HeaderAlign:      sanitizePDFDecorAlign(r.URL.Query().Get("header_align"), defaultPDFDecorAlign),
+		FooterAlign:      sanitizePDFDecorAlign(r.URL.Query().Get("footer_align"), "left"),
+		H1UnderlineColor: sanitizePDFHexColor(r.URL.Query().Get("h1_underline_color")),
 	}
+}
+
+func sanitizePDFDecorAlign(raw string, fallback string) string {
+	align := strings.ToLower(strings.TrimSpace(raw))
+	switch align {
+	case "left", "center", "right":
+		return align
+	default:
+		return fallback
+	}
+}
+
+func sanitizePDFHexColor(raw string) string {
+	color := strings.TrimSpace(raw)
+	if pdfHexColorPattern.MatchString(color) {
+		return strings.ToLower(color)
+	}
+	return ""
 }
 
 func sanitizePDFDecor(raw string) string {
@@ -239,32 +265,44 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	overrideMargins := m != marginPresets["standard"]
 	overrideHeader := decor.Header != ""
 	overrideFooter := decor.Footer != ""
+	overrideUnderline := decor.H1UnderlineColor != ""
+	overridePageDecor := overrideMargins || overrideHeader || overrideFooter
 
-	if !overrideMargins && !overrideHeader && !overrideFooter {
+	if !overridePageDecor && !overrideUnderline {
 		return ""
 	}
 
 	var css strings.Builder
-	css.WriteString("<style>@page {")
-	if overrideMargins {
-		fmt.Fprintf(&css, " margin: %s %s %s %s;", m.Top, m.Right, m.Bottom, m.Left)
-	}
-	if overrideHeader {
-		fmt.Fprintf(&css,
-			" @top-center { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
-			cssContentString(decor.Header),
-		)
-	}
-	if overrideFooter {
-		fmt.Fprintf(&css,
-			" @bottom-left { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
-			cssContentString(decor.Footer),
-		)
-	}
-	css.WriteString(" }")
+	css.WriteString("<style>")
 
-	if overrideMargins {
-		fmt.Fprintf(&css, " @page:first { margin-top: %s; }", m.Top)
+	if overridePageDecor {
+		css.WriteString("@page {")
+		if overrideMargins {
+			fmt.Fprintf(&css, " margin: %s %s %s %s;", m.Top, m.Right, m.Bottom, m.Left)
+		}
+		if overrideHeader {
+			fmt.Fprintf(&css,
+				" @top-%s { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
+				decor.HeaderAlign,
+				cssContentString(decor.Header),
+			)
+		}
+		if overrideFooter {
+			fmt.Fprintf(&css,
+				" @bottom-%s { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
+				decor.FooterAlign,
+				cssContentString(decor.Footer),
+			)
+		}
+		css.WriteString(" }")
+
+		if overrideMargins {
+			fmt.Fprintf(&css, " @page:first { margin-top: %s; }", m.Top)
+		}
+	}
+
+	if overrideUnderline {
+		fmt.Fprintf(&css, " h1 { border-bottom-color: %s; }", decor.H1UnderlineColor)
 	}
 
 	css.WriteString("</style>")

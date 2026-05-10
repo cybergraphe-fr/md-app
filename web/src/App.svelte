@@ -78,6 +78,7 @@
       <!-- Toolbar -->
       <Toolbar
         onExport={() => (exportOpen = true)}
+        onLayout={() => (exportOpen = true)}
         onTemplates={() => (templatesOpen = true)}
         onSearch={() => (searchOpen = true)}
         onHistory={() => (historyOpen = true)}

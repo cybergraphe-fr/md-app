@@ -24,6 +24,7 @@
   /* Font overrides: headings + body (set via JS) */
   --font-headings: var(--font-prose);
   --font-body: var(--font-prose);
+  --doc-h1-underline: #2563eb;
 
   /* Dark theme (default) */
   --bg-app: #09090b;
@@ -213,7 +214,7 @@ html, body {
   font-weight: 700;
   margin: 2rem 0 0.75rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--doc-h1-underline);
   letter-spacing: -0.02em;
 }
 .prose h2 { font-size: 1.55rem; font-weight: 600; margin: 1.75rem 0 0.6rem; letter-spacing: -0.01em; }

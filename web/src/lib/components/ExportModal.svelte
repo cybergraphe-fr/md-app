@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeFileId, activeName, activeContent } from '$lib/stores/files';
+  import { activeFileId, activeName, activeContent, layoutConfig, setLayoutConfig } from '$lib/stores/files';
   import { api, type PDFExportOptions } from '$lib/api';
   import { X, Download, Loader } from 'lucide-svelte';
   import DOMPurify from 'dompurify';
@@ -29,6 +29,13 @@
   let pdfFooter: string = $state('');
 
   const maxDecorLength = 120;
+  const layoutColorPattern = /^#[0-9a-fA-F]{6}$/;
+  const h1UnderlinePresets = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const alignOptions = [
+    { id: 'left', label: 'Left' },
+    { id: 'center', label: 'Center' },
+    { id: 'right', label: 'Right' },
+  ] as const;
 
   const marginOptions = [
     { id: 'standard', label: 'Standard', desc: '2.5 cm' },
@@ -50,7 +57,22 @@
       margin: pdfMargin,
       header: pdfHeader.trim(),
       footer: pdfFooter.trim(),
+      headerAlign: $layoutConfig.headerAlign,
+      footerAlign: $layoutConfig.footerAlign,
+      h1UnderlineColor: $layoutConfig.h1UnderlineColor,
     };
+  }
+
+  function updateLayoutColor(raw: string): void {
+    const normalized = raw.trim();
+    if (!layoutColorPattern.test(normalized)) return;
+    setLayoutConfig('h1UnderlineColor', normalized.toLowerCase());
+  }
+
+  function resetLayoutDefaults(): void {
+    setLayoutConfig('h1UnderlineColor', '#2563eb');
+    setLayoutConfig('headerAlign', 'center');
+    setLayoutConfig('footerAlign', 'left');
   }
 
   async function handleExport(formatId: string): Promise<void> {
@@ -189,7 +211,45 @@
       <div class="pdf-decor">
         <div class="pdf-decor-head">
           <span class="margin-label">PDF header & footer</span>
-          <span class="decor-meta">optional, max {maxDecorLength} chars</span>
+          <div class="decor-head-actions">
+            <span class="decor-meta">optional, max {maxDecorLength} chars</span>
+            <button type="button" class="decor-reset" onclick={resetLayoutDefaults}>Reset layout</button>
+          </div>
+        </div>
+
+        <div class="layout-custom-grid">
+          <div class="decor-field">
+            <span class="decor-label">H1 underline color</span>
+            <div class="color-row">
+              <input
+                class="color-input"
+                type="color"
+                value={$layoutConfig.h1UnderlineColor}
+                onchange={(e) => updateLayoutColor((e.currentTarget as HTMLInputElement).value)}
+                aria-label="H1 underline color"
+              />
+              <input
+                class="decor-input color-hex-input"
+                type="text"
+                maxlength="7"
+                value={$layoutConfig.h1UnderlineColor}
+                placeholder="#2563eb"
+                onchange={(e) => updateLayoutColor((e.currentTarget as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="swatch-row">
+              {#each h1UnderlinePresets as swatch}
+                <button
+                  type="button"
+                  class="swatch-btn"
+                  class:active={$layoutConfig.h1UnderlineColor === swatch}
+                  style={`--swatch:${swatch}`}
+                  title={swatch}
+                  onclick={() => setLayoutConfig('h1UnderlineColor', swatch)}
+                ></button>
+              {/each}
+            </div>
+          </div>
         </div>
 
         <div class="pdf-decor-grid">
@@ -203,6 +263,18 @@
               bind:value={pdfHeader}
               placeholder="Example: Confidential report"
             />
+            <div class="align-group" role="group" aria-label="Header alignment">
+              {#each alignOptions as option}
+                <button
+                  type="button"
+                  class="align-btn"
+                  class:active={$layoutConfig.headerAlign === option.id}
+                  onclick={() => setLayoutConfig('headerAlign', option.id)}
+                >
+                  {option.label}
+                </button>
+              {/each}
+            </div>
           </label>
 
           <label class="decor-field" for="pdf-footer-input">
@@ -215,10 +287,22 @@
               bind:value={pdfFooter}
               placeholder="Example: Internal use only"
             />
+            <div class="align-group" role="group" aria-label="Footer alignment">
+              {#each alignOptions as option}
+                <button
+                  type="button"
+                  class="align-btn"
+                  class:active={$layoutConfig.footerAlign === option.id}
+                  onclick={() => setLayoutConfig('footerAlign', option.id)}
+                >
+                  {option.label}
+                </button>
+              {/each}
+            </div>
           </label>
         </div>
 
-        <p class="decor-note">Page numbering is automatic in PDF: current/total (example: 9/14).</p>
+        <p class="decor-note">Page numbering is automatic in PDF: current/total (example: 9/14). Layout preferences are reused for future exports.</p>
       </div>
 
       <div class="formats-grid">
@@ -465,6 +549,29 @@
     font-family: var(--font-ui);
   }
 
+  .decor-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .decor-reset {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0.2rem 0.45rem;
+    cursor: pointer;
+  }
+
+  .decor-reset:hover {
+    color: var(--accent);
+    border-color: var(--accent-light);
+    background: var(--accent-surface);
+  }
+
   .pdf-decor-grid {
     display: grid;
     gap: 0.55rem;
@@ -508,6 +615,94 @@
     background: var(--bg-editor);
   }
 
+  .layout-custom-grid {
+    display: grid;
+    gap: 0.55rem;
+    grid-template-columns: 1fr;
+  }
+
+  .color-row {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  .color-input {
+    width: 42px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  .color-hex-input {
+    flex: 1;
+    text-transform: lowercase;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+
+  .swatch-row {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .swatch-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--swatch);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .swatch-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .swatch-btn.active {
+    box-shadow: 0 0 0 2px var(--bg-editor), 0 0 0 4px var(--accent-light);
+  }
+
+  .align-group {
+    margin-top: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    background: var(--bg-surface);
+  }
+
+  .align-btn {
+    min-width: 68px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+
+  .align-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .align-btn.active {
+    color: var(--accent);
+    border-color: var(--accent-light);
+    background: var(--accent-surface);
+  }
+
   .decor-note {
     margin: 0;
     font-size: 11px;
@@ -534,6 +729,12 @@
   :global([data-theme='light']) .margin-btn,
   :global([data-theme='light']) .format-card,
   :global([data-theme='light']) .decor-input {
+    border-color: rgba(15, 23, 42, 0.16);
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  :global([data-theme='light']) .color-input,
+  :global([data-theme='light']) .align-group {
     border-color: rgba(15, 23, 42, 0.16);
     background: rgba(255, 255, 255, 0.96);
   }

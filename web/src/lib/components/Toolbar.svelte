@@ -30,6 +30,7 @@
     LayoutTemplate,
     Search,
     History,
+    SlidersHorizontal,
     Bold,
     Italic,
     Underline,
@@ -54,6 +55,7 @@
   export let onHistory: () => void;
   export let onSync: () => void;
   export let onDesktopDownloads: () => void;
+  export let onLayout: () => void;
 
   const viewIcons: Record<string, typeof Columns2> = {
     split: Columns2,
@@ -199,6 +201,11 @@
     <button class="btn" title="Export" onclick={onExport}>
       <Download size={14} />
       Export
+    </button>
+
+    <button class="btn" title="Layout personalization" onclick={onLayout}>
+      <SlidersHorizontal size={14} />
+      Layout
     </button>
 
     <button class="btn" title="Print" onclick={handlePrint}>

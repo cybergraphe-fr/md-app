@@ -8,12 +8,18 @@ describe('api export URL builders', () => {
       margin: 'standard',
       header: '  Confidential Report  ',
       footer: 'Internal only',
+      headerAlign: 'right',
+      footerAlign: 'center',
+      h1UnderlineColor: '#10b981',
     });
 
     expect(url).toContain('/api/files/file-123/export/pdf?');
     expect(url).toContain('margin=standard');
     expect(url).toContain('header=Confidential+Report');
     expect(url).toContain('footer=Internal+only');
+    expect(url).toContain('header_align=right');
+    expect(url).toContain('footer_align=center');
+    expect(url).toContain('h1_underline_color=%2310b981');
   });
 
   it('keeps non-pdf export URLs unchanged', () => {

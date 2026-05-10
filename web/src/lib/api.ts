@@ -87,6 +87,9 @@ export interface PDFExportOptions {
   margin?: string;
   header?: string;
   footer?: string;
+  headerAlign?: 'left' | 'center' | 'right';
+  footerAlign?: 'left' | 'center' | 'right';
+  h1UnderlineColor?: string;
 }
 
 function normalizePDFOptions(options?: string | PDFExportOptions): PDFExportOptions | undefined {
@@ -103,10 +106,16 @@ function buildPDFExportQuery(options?: string | PDFExportOptions): string {
   const margin = normalized.margin?.trim();
   const header = normalized.header?.trim();
   const footer = normalized.footer?.trim();
+  const headerAlign = normalized.headerAlign?.trim();
+  const footerAlign = normalized.footerAlign?.trim();
+  const h1UnderlineColor = normalized.h1UnderlineColor?.trim();
 
   if (margin) params.set('margin', margin);
   if (header) params.set('header', header.slice(0, 120));
   if (footer) params.set('footer', footer.slice(0, 120));
+  if (headerAlign) params.set('header_align', headerAlign);
+  if (footerAlign) params.set('footer_align', footerAlign);
+  if (h1UnderlineColor) params.set('h1_underline_color', h1UnderlineColor);
 
   const qs = params.toString();
   return qs ? `?${qs}` : '';

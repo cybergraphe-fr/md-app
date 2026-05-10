@@ -37,7 +37,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 | **Desktop download CTA** | Toolbar + Synchroniser modal expose OS-aware desktop download links returned by `/api/desktop/downloads`, with fallback links for other platforms |
 | **Export** | HTML, PDF (via Pandoc + WeasyPrint), DOCX, ODT, EPUB, LaTeX, RST, AsciiDoc, Textile, MediaWiki, Plain text |
 | **PDF margins** | Standard (2.5 cm), Narrow (1.5 cm), Wide (3.5 cm), or custom (per-axis in cm) — selectable in export modal |
-| **PDF header/footer** | Optional custom header and footer text in export modal; built-in pagination is now current/total (example: `9/14`) |
+| **PDF layout personalization** | Optional custom header/footer text, header/footer alignment, H1 underline color presets/custom color, and built-in current/total pagination (example: `9/14`) |
 | **Export without save** | Export the current editor content directly — no need to save first |
 | **Import** | Upload `.md`, `.txt`, `.html` files via UI drag-and-drop or API |
 | **Print** | Native browser print with dedicated print stylesheet |
@@ -205,9 +205,9 @@ Base URL: `https://your-domain/api`
 | `GET` | `/api/files/:id/render` | Get rendered HTML (cached) |
 | `POST` | `/api/files/render` | Ad-hoc render `{content}` |
 | `GET` | `/api/files/:id/export/html` | Export as standalone HTML |
-| `POST` | `/api/files/:id/export/:format` | Export (pdf, docx, odt, epub, latex, rst, asciidoc, textile, mediawiki, plain). PDF accepts `?margin=standard\|narrow\|wide` or `?mt=&mr=&mb=&ml=` (cm), plus optional `?header=` and `?footer=` |
+| `POST` | `/api/files/:id/export/:format` | Export (pdf, docx, odt, epub, latex, rst, asciidoc, textile, mediawiki, plain). PDF accepts `?margin=standard\|narrow\|wide` or `?mt=&mr=&mb=&ml=` (cm), optional `?header=` and `?footer=`, optional `?header_align=left\|center\|right`, `?footer_align=left\|center\|right`, and `?h1_underline_color=%23RRGGBB` |
 | `POST` | `/api/files/import` | Import via multipart form (`file` field) |
-| `POST` | `/api/export/raw/:format` | Export raw content without saving `{content, name}`. PDF accepts same margin params + optional `?header=` and `?footer=` |
+| `POST` | `/api/export/raw/:format` | Export raw content without saving `{content, name}`. PDF accepts same margin params and optional layout params (`header`, `footer`, `header_align`, `footer_align`, `h1_underline_color`) |
 | `GET` | `/api/export/formats` | List supported export formats |
 | `GET` | `/api/templates` | List 8 built-in templates |
 | `GET` | `/api/templates/:id` | Get template with full content |
