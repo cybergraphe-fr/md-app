@@ -2,6 +2,7 @@
 
 **Date**: 2026-05-10
 **Heure**: 04:24
+**Fin**: 2026-05-10 04:31
 **Contexte**: Les polices export PDF ne respectent pas la selection utilisateur (cas titres Tangerine + corps Lora). Le menu de choix des polices est sombre en theme clair (contraste insuffisant).
 **Objectif**: Restaurer la fidelite des polices en PDF (selection headings/body) et corriger le contraste du dropdown FontPicker en theme clair. Valider CI/CD vert.
 
@@ -70,4 +71,4 @@
 - Tests: OK
 - Build: OK
 - Deploy: OK
-- Push: en cours
+- Push: OK
