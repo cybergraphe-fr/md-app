@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeFileId, activeName, activeContent, layoutConfig, setLayoutConfig } from '$lib/stores/files';
+  import { activeFileId, activeName, activeContent, layoutConfig, setLayoutConfig, type ExportHeadingFont } from '$lib/stores/files';
   import { api, type PDFExportOptions } from '$lib/api';
   import { X, Download, Loader } from 'lucide-svelte';
   import DOMPurify from 'dompurify';
@@ -31,6 +31,12 @@
   const maxDecorLength = 120;
   const layoutColorPattern = /^#[0-9a-fA-F]{6}$/;
   const h1UnderlinePresets = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const headingTextPresets = ['#111111', '#0f172a', '#1f2937', '#374151', '#000000', '#475569'];
+  const headingFontOptions: Array<{ id: ExportHeadingFont; label: string; desc: string }> = [
+    { id: 'sans', label: 'Sans', desc: 'Modern, clean heading style' },
+    { id: 'serif', label: 'Serif', desc: 'Classic publishing style' },
+    { id: 'mono', label: 'Mono', desc: 'Technical documentation style' },
+  ];
   const alignOptions = [
     { id: 'left', label: 'Left' },
     { id: 'center', label: 'Center' },
@@ -60,6 +66,8 @@
       headerAlign: $layoutConfig.headerAlign,
       footerAlign: $layoutConfig.footerAlign,
       h1UnderlineColor: $layoutConfig.h1UnderlineColor,
+      headingTextColor: $layoutConfig.headingTextColor,
+      headingFont: $layoutConfig.exportHeadingFont,
     };
   }
 
@@ -69,8 +77,16 @@
     setLayoutConfig('h1UnderlineColor', normalized.toLowerCase());
   }
 
+  function updateHeadingTextColor(raw: string): void {
+    const normalized = raw.trim();
+    if (!layoutColorPattern.test(normalized)) return;
+    setLayoutConfig('headingTextColor', normalized.toLowerCase());
+  }
+
   function resetLayoutDefaults(): void {
     setLayoutConfig('h1UnderlineColor', '#2563eb');
+    setLayoutConfig('headingTextColor', '#111111');
+    setLayoutConfig('exportHeadingFont', 'sans');
     setLayoutConfig('headerAlign', 'center');
     setLayoutConfig('footerAlign', 'left');
   }
@@ -218,6 +234,56 @@
         </div>
 
         <div class="layout-custom-grid">
+          <div class="decor-field">
+            <span class="decor-label">Heading font</span>
+            <div class="font-choice-row">
+              {#each headingFontOptions as option}
+                <button
+                  type="button"
+                  class="align-btn"
+                  class:active={$layoutConfig.exportHeadingFont === option.id}
+                  onclick={() => setLayoutConfig('exportHeadingFont', option.id)}
+                  title={option.desc}
+                >
+                  {option.label}
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="decor-field">
+            <span class="decor-label">Heading text color</span>
+            <div class="color-row">
+              <input
+                class="color-input"
+                type="color"
+                value={$layoutConfig.headingTextColor}
+                onchange={(e) => updateHeadingTextColor((e.currentTarget as HTMLInputElement).value)}
+                aria-label="Heading text color"
+              />
+              <input
+                class="decor-input color-hex-input"
+                type="text"
+                maxlength="7"
+                value={$layoutConfig.headingTextColor}
+                placeholder="#111111"
+                onchange={(e) => updateHeadingTextColor((e.currentTarget as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="swatch-row">
+              {#each headingTextPresets as swatch}
+                <button
+                  type="button"
+                  class="swatch-btn"
+                  class:active={$layoutConfig.headingTextColor === swatch}
+                  style={`--swatch:${swatch}`}
+                  title={swatch}
+                  onclick={() => setLayoutConfig('headingTextColor', swatch)}
+                ></button>
+              {/each}
+            </div>
+          </div>
+
           <div class="decor-field">
             <span class="decor-label">H1 underline color</span>
             <div class="color-row">
@@ -619,8 +685,14 @@
 
   .layout-custom-grid {
     display: grid;
-    gap: 0.55rem;
+    gap: 0.75rem;
     grid-template-columns: 1fr;
+  }
+
+  .font-choice-row {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
   }
 
   .color-row {

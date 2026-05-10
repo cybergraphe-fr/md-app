@@ -90,6 +90,8 @@ export interface PDFExportOptions {
   headerAlign?: 'left' | 'center' | 'right';
   footerAlign?: 'left' | 'center' | 'right';
   h1UnderlineColor?: string;
+  headingTextColor?: string;
+  headingFont?: 'sans' | 'serif' | 'mono';
 }
 
 function normalizePDFOptions(options?: string | PDFExportOptions): PDFExportOptions | undefined {
@@ -98,7 +100,7 @@ function normalizePDFOptions(options?: string | PDFExportOptions): PDFExportOpti
   return options;
 }
 
-function buildPDFExportQuery(options?: string | PDFExportOptions): string {
+function buildExportQuery(format: string, options?: string | PDFExportOptions): string {
   const normalized = normalizePDFOptions(options);
   if (!normalized) return '';
 
@@ -109,13 +111,20 @@ function buildPDFExportQuery(options?: string | PDFExportOptions): string {
   const headerAlign = normalized.headerAlign?.trim();
   const footerAlign = normalized.footerAlign?.trim();
   const h1UnderlineColor = normalized.h1UnderlineColor?.trim();
+  const headingTextColor = normalized.headingTextColor?.trim();
+  const headingFont = normalized.headingFont?.trim();
 
-  if (margin) params.set('margin', margin);
-  if (header) params.set('header', header.slice(0, 120));
-  if (footer) params.set('footer', footer.slice(0, 120));
-  if (headerAlign) params.set('header_align', headerAlign);
-  if (footerAlign) params.set('footer_align', footerAlign);
+  if (format === 'pdf') {
+    if (margin) params.set('margin', margin);
+    if (header) params.set('header', header.slice(0, 120));
+    if (footer) params.set('footer', footer.slice(0, 120));
+    if (headerAlign) params.set('header_align', headerAlign);
+    if (footerAlign) params.set('footer_align', footerAlign);
+  }
+
   if (h1UnderlineColor) params.set('h1_underline_color', h1UnderlineColor);
+  if (headingTextColor) params.set('heading_text_color', headingTextColor);
+  if (headingFont) params.set('heading_font', headingFont);
 
   const qs = params.toString();
   return qs ? `?${qs}` : '';
@@ -171,12 +180,12 @@ export const api = {
   },
 
   exportFormat(id: string, format: string, options?: string | PDFExportOptions): string {
-    const qs = format === 'pdf' ? buildPDFExportQuery(options) : '';
+    const qs = buildExportQuery(format, options);
     return `${BASE}/files/${id}/export/${format}${qs}`;
   },
 
   exportRawFormat(format: string, options?: string | PDFExportOptions): string {
-    const qs = format === 'pdf' ? buildPDFExportQuery(options) : '';
+    const qs = buildExportQuery(format, options);
     return `${BASE}/export/raw/${format}${qs}`;
   },
 

@@ -11,6 +11,8 @@ describe('api export URL builders', () => {
       headerAlign: 'right',
       footerAlign: 'center',
       h1UnderlineColor: '#10b981',
+      headingTextColor: '#111111',
+      headingFont: 'serif',
     });
 
     expect(url).toContain('/api/files/file-123/export/pdf?');
@@ -20,6 +22,18 @@ describe('api export URL builders', () => {
     expect(url).toContain('header_align=right');
     expect(url).toContain('footer_align=center');
     expect(url).toContain('h1_underline_color=%2310b981');
+    expect(url).toContain('heading_text_color=%23111111');
+    expect(url).toContain('heading_font=serif');
+  });
+
+  it('passes heading style options to non-pdf exports', () => {
+    const url = api.exportFormat('file-1', 'docx', {
+      headingTextColor: '#000000',
+      headingFont: 'mono',
+    });
+    expect(url).toContain('/api/files/file-1/export/docx?');
+    expect(url).toContain('heading_text_color=%23000000');
+    expect(url).toContain('heading_font=mono');
   });
 
   it('keeps non-pdf export URLs unchanged', () => {

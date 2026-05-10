@@ -156,10 +156,14 @@ type pdfPageDecor struct {
 	HeaderAlign      string
 	FooterAlign      string
 	H1UnderlineColor string
+	HeadingTextColor string
+	HeadingFont      string
 }
 
 const maxPDFDecorLength = 120
 const defaultPDFDecorAlign = "center"
+const defaultExportHeadingTextColor = "#111111"
+const defaultExportHeadingFont = "sans"
 
 var cssContentEscaper = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 var pdfHexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -204,6 +208,48 @@ func parsePageDecor(r *http.Request) pdfPageDecor {
 		HeaderAlign:      sanitizePDFDecorAlign(r.URL.Query().Get("header_align"), defaultPDFDecorAlign),
 		FooterAlign:      sanitizePDFDecorAlign(r.URL.Query().Get("footer_align"), "left"),
 		H1UnderlineColor: sanitizePDFHexColor(r.URL.Query().Get("h1_underline_color")),
+		HeadingTextColor: sanitizePDFHexColorWithDefault(r.URL.Query().Get("heading_text_color"), defaultExportHeadingTextColor),
+		HeadingFont:      sanitizeHeadingFont(r.URL.Query().Get("heading_font")),
+	}
+}
+
+func sanitizePDFHexColorWithDefault(raw string, fallback string) string {
+	color := sanitizePDFHexColor(raw)
+	if color == "" {
+		return fallback
+	}
+	return color
+}
+
+func sanitizeHeadingFont(raw string) string {
+	font := strings.ToLower(strings.TrimSpace(raw))
+	switch font {
+	case "sans", "serif", "mono":
+		return font
+	default:
+		return defaultExportHeadingFont
+	}
+}
+
+func headingFontFamily(font string) string {
+	switch font {
+	case "serif":
+		return "'Liberation Serif', 'DejaVu Serif', Georgia, serif"
+	case "mono":
+		return "'Liberation Mono', 'DejaVu Sans Mono', monospace"
+	default:
+		return "'Liberation Sans', 'DejaVu Sans', sans-serif"
+	}
+}
+
+func pandocFontVars(font string) (mainfont string, sansfont string, monofont string) {
+	switch font {
+	case "serif":
+		return "Liberation Serif", "Liberation Serif", "Liberation Mono"
+	case "mono":
+		return "Liberation Mono", "Liberation Mono", "Liberation Mono"
+	default:
+		return "Liberation Sans", "Liberation Sans", "Liberation Mono"
 	}
 }
 
@@ -262,13 +308,25 @@ func cssContentString(value string) string {
 
 // pageOverridesCSS generates a <style> block for custom PDF margins/header/footer.
 func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
+	headingColor := decor.HeadingTextColor
+	if headingColor == "" {
+		headingColor = defaultExportHeadingTextColor
+	}
+
+	headingFont := decor.HeadingFont
+	if headingFont == "" {
+		headingFont = defaultExportHeadingFont
+	}
+
 	overrideMargins := m != marginPresets["standard"]
 	overrideHeader := decor.Header != ""
 	overrideFooter := decor.Footer != ""
 	overrideUnderline := decor.H1UnderlineColor != ""
+	overrideHeadingColor := headingColor != defaultExportHeadingTextColor
+	overrideHeadingFont := headingFont != defaultExportHeadingFont
 	overridePageDecor := overrideMargins || overrideHeader || overrideFooter
 
-	if !overridePageDecor && !overrideUnderline {
+	if !overridePageDecor && !overrideUnderline && !overrideHeadingColor && !overrideHeadingFont {
 		return ""
 	}
 
@@ -303,6 +361,17 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 
 	if overrideUnderline {
 		fmt.Fprintf(&css, " h1 { border-bottom-color: %s; }", decor.H1UnderlineColor)
+	}
+
+	if overrideHeadingColor || overrideHeadingFont {
+		css.WriteString(" h1, h2, h3, h4, h5, h6 {")
+		if overrideHeadingColor {
+			fmt.Fprintf(&css, " color: %s;", headingColor)
+		}
+		if overrideHeadingFont {
+			fmt.Fprintf(&css, " font-family: %s;", headingFontFamily(headingFont))
+		}
+		css.WriteString(" }")
 	}
 
 	css.WriteString("</style>")
@@ -380,10 +449,11 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 
+	decor := parsePageDecor(r)
+
 	// PDF: two-step pipeline (Pandoc → HTML → WeasyPrint → PDF)
 	if format == "pdf" {
 		margins := parseMargins(r)
-		decor := parsePageDecor(r)
 		htmlFile := filepath.Join(tmpDir, "output.html")
 		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins, decor); err != nil {
 			slog.Error("pdf export failed", "file", fwc.Name, "error", err)
@@ -391,7 +461,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		if err := h.runPandocExport(ctx, inputFile, outputFile, fmtInfo.to); err != nil {
+		if err := h.runPandocExport(ctx, inputFile, outputFile, fmtInfo.to, decor); err != nil {
 			slog.Error("pandoc export failed", "format", format, "file", fwc.Name, "error", err)
 			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
 			return
@@ -428,14 +498,27 @@ func streamFile(w http.ResponseWriter, path, contentType, filename string) error
 }
 
 // runPandocExport runs Pandoc for non-PDF formats.
-func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFile, toFmt string) error {
+func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFile, toFmt string, decor pdfPageDecor) error {
+	mainfont, sansfont, monofont := pandocFontVars(decor.HeadingFont)
 	args := []string{
 		"-f", pandocInputFmt,
 		"-t", toFmt,
 		"--standalone",
 		"--highlight-style", "zenburn",
+		"-V", "mainfont=" + mainfont,
+		"-V", "sansfont=" + sansfont,
+		"-V", "monofont=" + monofont,
 		"-o", outputFile,
 		inputFile,
+	}
+
+	if toFmt == "html" || toFmt == "epub" {
+		headingCSS := fmt.Sprintf("h1,h2,h3,h4,h5,h6{color:%s;font-family:%s;} h1{border-bottom-color:%s;}", decor.HeadingTextColor, headingFontFamily(decor.HeadingFont), defaultExportHeadingTextColor)
+		cssFile := filepath.Join(filepath.Dir(outputFile), "export-heading.css")
+		if err := os.WriteFile(cssFile, []byte(headingCSS), 0600); err != nil {
+			return fmt.Errorf("write export css: %w", err)
+		}
+		args = append(args, "--css", cssFile)
 	}
 	stderr := stderrBufPool.Get().(*bytes.Buffer)
 	stderr.Reset()
@@ -575,7 +658,8 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		if err := h.runPandocExport(ctx, inputFile, outputFile, fmtInfo.to); err != nil {
+		decor := parsePageDecor(r)
+		if err := h.runPandocExport(ctx, inputFile, outputFile, fmtInfo.to, decor); err != nil {
 			slog.Error("pandoc export raw failed", "format", format, "error", err)
 			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
 			return

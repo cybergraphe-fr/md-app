@@ -49,15 +49,20 @@ export interface FontConfig {
 
 const defaultFontConfig: FontConfig = { headings: 'Lora', body: 'Lora' };
 type HeaderFooterAlign = 'left' | 'center' | 'right';
+export type ExportHeadingFont = 'sans' | 'serif' | 'mono';
 
 export interface LayoutConfig {
   h1UnderlineColor: string;
+  headingTextColor: string;
+  exportHeadingFont: ExportHeadingFont;
   headerAlign: HeaderFooterAlign;
   footerAlign: HeaderFooterAlign;
 }
 
 const defaultLayoutConfig: LayoutConfig = {
   h1UnderlineColor: '#2563eb',
+  headingTextColor: '#111111',
+  exportHeadingFont: 'sans',
   headerAlign: 'center',
   footerAlign: 'left',
 };
@@ -69,6 +74,10 @@ export const layoutConfig = writable<LayoutConfig>({ ...defaultLayoutConfig });
 
 function isHeaderFooterAlign(value: unknown): value is HeaderFooterAlign {
   return value === 'left' || value === 'center' || value === 'right';
+}
+
+function isExportHeadingFont(value: unknown): value is ExportHeadingFont {
+  return value === 'sans' || value === 'serif' || value === 'mono';
 }
 
 function sanitizeLayoutColor(value: unknown): string {
@@ -83,6 +92,8 @@ function normalizeLayoutConfig(raw: unknown): LayoutConfig {
   const source = raw as Partial<LayoutConfig>;
   return {
     h1UnderlineColor: sanitizeLayoutColor(source.h1UnderlineColor),
+    headingTextColor: sanitizeLayoutColor(source.headingTextColor),
+    exportHeadingFont: isExportHeadingFont(source.exportHeadingFont) ? source.exportHeadingFont : defaultLayoutConfig.exportHeadingFont,
     headerAlign: isHeaderFooterAlign(source.headerAlign) ? source.headerAlign : defaultLayoutConfig.headerAlign,
     footerAlign: isHeaderFooterAlign(source.footerAlign) ? source.footerAlign : defaultLayoutConfig.footerAlign,
   };
