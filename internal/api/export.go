@@ -158,12 +158,20 @@ type pdfPageDecor struct {
 	H1UnderlineColor string
 	HeadingTextColor string
 	HeadingFont      string
+	HeadingFontName  string
+	BodyFontName     string
 }
 
 const maxPDFDecorLength = 120
 const defaultPDFDecorAlign = "center"
 const defaultExportHeadingTextColor = "#111111"
 const defaultExportHeadingFont = "sans"
+
+var allowedExportFontNames = map[string]struct{}{
+	"Lora": {}, "Merriweather": {}, "Playfair Display": {}, "Source Serif 4": {}, "Tangerine": {},
+	"Inter": {}, "Roboto": {}, "Open Sans": {}, "Poppins": {}, "Exo 2": {},
+	"Ubuntu": {}, "Nunito Sans": {}, "Raleway": {}, "Helvetica": {},
+}
 
 var cssContentEscaper = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 var pdfHexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -210,7 +218,17 @@ func parsePageDecor(r *http.Request) pdfPageDecor {
 		H1UnderlineColor: sanitizePDFHexColor(r.URL.Query().Get("h1_underline_color")),
 		HeadingTextColor: sanitizePDFHexColorWithDefault(r.URL.Query().Get("heading_text_color"), defaultExportHeadingTextColor),
 		HeadingFont:      sanitizeHeadingFont(r.URL.Query().Get("heading_font")),
+		HeadingFontName:  sanitizeExportFontName(r.URL.Query().Get("heading_font_name")),
+		BodyFontName:     sanitizeExportFontName(r.URL.Query().Get("body_font_name")),
 	}
+}
+
+func sanitizeExportFontName(raw string) string {
+	name := strings.TrimSpace(raw)
+	if _, ok := allowedExportFontNames[name]; ok {
+		return name
+	}
+	return ""
 }
 
 func sanitizePDFHexColorWithDefault(raw string, fallback string) string {
@@ -242,15 +260,88 @@ func headingFontFamily(font string) string {
 	}
 }
 
-func pandocFontVars(font string) (mainfont string, sansfont string, monofont string) {
-	switch font {
-	case "serif":
-		return "Liberation Serif", "Liberation Serif", "Liberation Mono"
-	case "mono":
-		return "Liberation Mono", "Liberation Mono", "Liberation Mono"
+func exportFontFamilyFromName(name string, fallback string) string {
+	switch name {
+	case "Lora":
+		return "'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"
+	case "Merriweather":
+		return "'Merriweather', 'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"
+	case "Playfair Display":
+		return "'Playfair Display', 'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"
+	case "Source Serif 4":
+		return "'Source Serif 4', 'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"
+	case "Tangerine":
+		return "'Tangerine', 'Lora', 'Liberation Serif', 'DejaVu Serif', serif"
+	case "Inter":
+		return "'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Roboto":
+		return "'Roboto', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Open Sans":
+		return "'Open Sans', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Poppins":
+		return "'Poppins', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Exo 2":
+		return "'Exo 2', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Ubuntu":
+		return "'Ubuntu', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Nunito Sans":
+		return "'Nunito Sans', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Raleway":
+		return "'Raleway', 'Inter', 'Liberation Sans', 'DejaVu Sans', sans-serif"
+	case "Helvetica":
+		return "Helvetica, Arial, 'Liberation Sans', 'DejaVu Sans', sans-serif"
 	default:
-		return "Liberation Sans", "Liberation Sans", "Liberation Mono"
+		return fallback
 	}
+}
+
+func exportPandocFontFromName(name string) string {
+	switch name {
+	case "Lora":
+		return "Lora"
+	case "Inter":
+		return "Inter"
+	case "Helvetica":
+		return "Liberation Sans"
+	case "Merriweather", "Playfair Display", "Source Serif 4", "Tangerine":
+		return "Liberation Serif"
+	case "Roboto", "Open Sans", "Poppins", "Exo 2", "Ubuntu", "Nunito Sans", "Raleway":
+		return "Liberation Sans"
+	default:
+		return ""
+	}
+}
+
+func pandocFontVars(decor pdfPageDecor) (mainfont string, sansfont string, monofont string) {
+	if explicitBody := exportPandocFontFromName(decor.BodyFontName); explicitBody != "" {
+		mainfont = explicitBody
+	}
+	if explicitHeading := exportPandocFontFromName(decor.HeadingFontName); explicitHeading != "" {
+		sansfont = explicitHeading
+	}
+
+	if mainfont == "" || sansfont == "" {
+		fallbackMain, fallbackSans, fallbackMono := "", "", ""
+		switch decor.HeadingFont {
+		case "serif":
+			fallbackMain, fallbackSans, fallbackMono = "Liberation Serif", "Liberation Serif", "Liberation Mono"
+		case "mono":
+			fallbackMain, fallbackSans, fallbackMono = "Liberation Mono", "Liberation Mono", "Liberation Mono"
+		default:
+			fallbackMain, fallbackSans, fallbackMono = "Liberation Sans", "Liberation Sans", "Liberation Mono"
+		}
+		if mainfont == "" {
+			mainfont = fallbackMain
+		}
+		if sansfont == "" {
+			sansfont = fallbackSans
+		}
+		monofont = fallbackMono
+	} else {
+		monofont = "Liberation Mono"
+	}
+
+	return mainfont, sansfont, monofont
 }
 
 func sanitizePDFDecorAlign(raw string, fallback string) string {
@@ -324,9 +415,11 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	overrideUnderline := decor.H1UnderlineColor != ""
 	overrideHeadingColor := headingColor != defaultExportHeadingTextColor
 	overrideHeadingFont := headingFont != defaultExportHeadingFont
+	overrideHeadingFontName := decor.HeadingFontName != ""
+	overrideBodyFontName := decor.BodyFontName != ""
 	overridePageDecor := overrideMargins || overrideHeader || overrideFooter
 
-	if !overridePageDecor && !overrideUnderline && !overrideHeadingColor && !overrideHeadingFont {
+	if !overridePageDecor && !overrideUnderline && !overrideHeadingColor && !overrideHeadingFont && !overrideHeadingFontName && !overrideBodyFontName {
 		return ""
 	}
 
@@ -363,15 +456,27 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 		fmt.Fprintf(&css, " h1 { border-bottom-color: %s; }", decor.H1UnderlineColor)
 	}
 
-	if overrideHeadingColor || overrideHeadingFont {
+	if overrideHeadingColor || overrideHeadingFont || overrideHeadingFontName {
+		headingFamily := headingFontFamily(headingFont)
+		if overrideHeadingFontName {
+			headingFamily = exportFontFamilyFromName(decor.HeadingFontName, headingFamily)
+		}
+
 		css.WriteString(" h1, h2, h3, h4, h5, h6 {")
 		if overrideHeadingColor {
 			fmt.Fprintf(&css, " color: %s;", headingColor)
 		}
-		if overrideHeadingFont {
-			fmt.Fprintf(&css, " font-family: %s;", headingFontFamily(headingFont))
+		if overrideHeadingFont || overrideHeadingFontName {
+			fmt.Fprintf(&css, " font-family: %s;", headingFamily)
 		}
 		css.WriteString(" }")
+	}
+
+	if overrideBodyFontName {
+		fmt.Fprintf(&css,
+			" body, p, li, td, th, blockquote, dd { font-family: %s; }",
+			exportFontFamilyFromName(decor.BodyFontName, "'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"),
+		)
 	}
 
 	css.WriteString("</style>")
@@ -499,7 +604,7 @@ func streamFile(w http.ResponseWriter, path, contentType, filename string) error
 
 // runPandocExport runs Pandoc for non-PDF formats.
 func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFile, toFmt string, decor pdfPageDecor) error {
-	mainfont, sansfont, monofont := pandocFontVars(decor.HeadingFont)
+	mainfont, sansfont, monofont := pandocFontVars(decor)
 	args := []string{
 		"-f", pandocInputFmt,
 		"-t", toFmt,
@@ -513,7 +618,12 @@ func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFi
 	}
 
 	if toFmt == "html" || toFmt == "epub" {
-		headingCSS := fmt.Sprintf("h1,h2,h3,h4,h5,h6{color:%s;font-family:%s;} h1{border-bottom-color:%s;}", decor.HeadingTextColor, headingFontFamily(decor.HeadingFont), defaultExportHeadingTextColor)
+		headingFamily := headingFontFamily(decor.HeadingFont)
+		if decor.HeadingFontName != "" {
+			headingFamily = exportFontFamilyFromName(decor.HeadingFontName, headingFamily)
+		}
+		bodyFamily := exportFontFamilyFromName(decor.BodyFontName, "'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif")
+		headingCSS := fmt.Sprintf("h1,h2,h3,h4,h5,h6{color:%s;font-family:%s;} body,p,li,td,th,blockquote,dd{font-family:%s;} h1{border-bottom-color:%s;}", decor.HeadingTextColor, headingFamily, bodyFamily, defaultExportHeadingTextColor)
 		cssFile := filepath.Join(filepath.Dir(outputFile), "export-heading.css")
 		if err := os.WriteFile(cssFile, []byte(headingCSS), 0600); err != nil {
 			return fmt.Errorf("write export css: %w", err)

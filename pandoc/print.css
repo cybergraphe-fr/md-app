@@ -7,6 +7,22 @@
    document output at 2026 enterprise standards.
    ═══════════════════════════════════════════════════════════════════════ */
 
+@font-face {
+  font-family: 'Lora';
+  src: url('file:///app/pandoc/fonts/Lora-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Tangerine';
+  src: url('file:///app/pandoc/fonts/Tangerine-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════
    § PAGE LAYOUT
@@ -44,7 +60,7 @@
 * { box-sizing: border-box; }
 
 body {
-  font-family: 'Liberation Serif', 'DejaVu Serif', Georgia, serif;
+  font-family: 'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif;
   font-size: 10.5pt;
   line-height: 1.7;
   color: #1a1a2e;

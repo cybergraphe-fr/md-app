@@ -92,6 +92,8 @@ export interface PDFExportOptions {
   h1UnderlineColor?: string;
   headingTextColor?: string;
   headingFont?: 'sans' | 'serif' | 'mono';
+  headingFontName?: string;
+  bodyFontName?: string;
 }
 
 function normalizePDFOptions(options?: string | PDFExportOptions): PDFExportOptions | undefined {
@@ -113,6 +115,8 @@ function buildExportQuery(format: string, options?: string | PDFExportOptions): 
   const h1UnderlineColor = normalized.h1UnderlineColor?.trim();
   const headingTextColor = normalized.headingTextColor?.trim();
   const headingFont = normalized.headingFont?.trim();
+  const headingFontName = normalized.headingFontName?.trim();
+  const bodyFontName = normalized.bodyFontName?.trim();
 
   if (format === 'pdf') {
     if (margin) params.set('margin', margin);
@@ -125,6 +129,8 @@ function buildExportQuery(format: string, options?: string | PDFExportOptions): 
   if (h1UnderlineColor) params.set('h1_underline_color', h1UnderlineColor);
   if (headingTextColor) params.set('heading_text_color', headingTextColor);
   if (headingFont) params.set('heading_font', headingFont);
+  if (headingFontName) params.set('heading_font_name', headingFontName);
+  if (bodyFontName) params.set('body_font_name', bodyFontName);
 
   const qs = params.toString();
   return qs ? `?${qs}` : '';

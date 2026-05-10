@@ -22,7 +22,7 @@ func TestSanitizePDFDecor_TruncatesLongValues(t *testing.T) {
 }
 
 func TestParsePageDecor_ReadsQueryParams(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/export/raw/pdf?header=%20Board%20Memo%20&footer=Confidential%0AInternal&header_align=right&footer_align=center&h1_underline_color=%232563eb&heading_text_color=%23000000&heading_font=serif", nil)
+	req := httptest.NewRequest("GET", "/api/export/raw/pdf?header=%20Board%20Memo%20&footer=Confidential%0AInternal&header_align=right&footer_align=center&h1_underline_color=%232563eb&heading_text_color=%23000000&heading_font=serif&heading_font_name=Tangerine&body_font_name=Lora", nil)
 	decor := parsePageDecor(req)
 	if decor.Header != "Board Memo" {
 		t.Fatalf("unexpected header: %q", decor.Header)
@@ -45,10 +45,16 @@ func TestParsePageDecor_ReadsQueryParams(t *testing.T) {
 	if decor.HeadingFont != "serif" {
 		t.Fatalf("unexpected heading font: %q", decor.HeadingFont)
 	}
+	if decor.HeadingFontName != "Tangerine" {
+		t.Fatalf("unexpected heading font name: %q", decor.HeadingFontName)
+	}
+	if decor.BodyFontName != "Lora" {
+		t.Fatalf("unexpected body font name: %q", decor.BodyFontName)
+	}
 }
 
 func TestParsePageDecor_InvalidAlignAndColorFallback(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/export/raw/pdf?header_align=side&footer_align=diag&h1_underline_color=orange&heading_text_color=oops&heading_font=comic", nil)
+	req := httptest.NewRequest("GET", "/api/export/raw/pdf?header_align=side&footer_align=diag&h1_underline_color=orange&heading_text_color=oops&heading_font=comic&heading_font_name=Comic+Sans&body_font_name=Unknown", nil)
 	decor := parsePageDecor(req)
 	if decor.HeaderAlign != defaultPDFDecorAlign {
 		t.Fatalf("unexpected header align fallback: %q", decor.HeaderAlign)
@@ -64,6 +70,12 @@ func TestParsePageDecor_InvalidAlignAndColorFallback(t *testing.T) {
 	}
 	if decor.HeadingFont != defaultExportHeadingFont {
 		t.Fatalf("unexpected heading font fallback: %q", decor.HeadingFont)
+	}
+	if decor.HeadingFontName != "" {
+		t.Fatalf("unexpected heading font name fallback: %q", decor.HeadingFontName)
+	}
+	if decor.BodyFontName != "" {
+		t.Fatalf("unexpected body font name fallback: %q", decor.BodyFontName)
 	}
 }
 
@@ -84,6 +96,8 @@ func TestPageOverridesCSS_IncludesMarginHeaderFooterAndEscaping(t *testing.T) {
 		H1UnderlineColor: "#10b981",
 		HeadingTextColor: "#000000",
 		HeadingFont:      "mono",
+		HeadingFontName:  "Tangerine",
+		BodyFontName:     "Lora",
 	}
 
 	css := pageOverridesCSS(margins, decor)
@@ -96,7 +110,8 @@ func TestPageOverridesCSS_IncludesMarginHeaderFooterAndEscaping(t *testing.T) {
 		`content: "Confidential"`,
 		"h1 { border-bottom-color: #10b981; }",
 		"h1, h2, h3, h4, h5, h6 { color: #000000;",
-		"font-family: 'Liberation Mono', 'DejaVu Sans Mono', monospace;",
+		"font-family: 'Tangerine', 'Lora', 'Liberation Serif', 'DejaVu Serif', serif;",
+		"body, p, li, td, th, blockquote, dd { font-family: 'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif; }",
 		"@page:first { margin-top: 2cm; }",
 		"</style>",
 	}

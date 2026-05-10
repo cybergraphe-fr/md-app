@@ -205,9 +205,9 @@ Base URL: `https://your-domain/api`
 | `GET` | `/api/files/:id/render` | Get rendered HTML (cached) |
 | `POST` | `/api/files/render` | Ad-hoc render `{content}` |
 | `GET` | `/api/files/:id/export/html` | Export as standalone HTML |
-| `POST` | `/api/files/:id/export/:format` | Export (pdf, docx, odt, epub, latex, rst, asciidoc, textile, mediawiki, plain). PDF accepts `?margin=standard\|narrow\|wide` or `?mt=&mr=&mb=&ml=` (cm), optional `?header=` and `?footer=`, optional `?header_align=left\|center\|right`, `?footer_align=left\|center\|right`, and `?h1_underline_color=%23RRGGBB`. Heading style options are available on rich exports via `?heading_text_color=%23RRGGBB` (default `#111111`) and `?heading_font=sans\|serif\|mono`. |
+| `POST` | `/api/files/:id/export/:format` | Export (pdf, docx, odt, epub, latex, rst, asciidoc, textile, mediawiki, plain). PDF accepts `?margin=standard\|narrow\|wide` or `?mt=&mr=&mb=&ml=` (cm), optional `?header=` and `?footer=`, optional `?header_align=left\|center\|right`, `?footer_align=left\|center\|right`, and `?h1_underline_color=%23RRGGBB`. Heading style options are available on rich exports via `?heading_text_color=%23RRGGBB` (default `#111111`), `?heading_font=sans\|serif\|mono`, plus explicit typography params `?heading_font_name=<FontName>` and `?body_font_name=<FontName>` for PDF/web font fidelity (for example `Tangerine` + `Lora`). |
 | `POST` | `/api/files/import` | Import via multipart form (`file` field) |
-| `POST` | `/api/export/raw/:format` | Export raw content without saving `{content, name}`. PDF accepts same margin params and optional layout params (`header`, `footer`, `header_align`, `footer_align`, `h1_underline_color`). Rich exports also accept `heading_text_color` and `heading_font` for heading typography customization. |
+| `POST` | `/api/export/raw/:format` | Export raw content without saving `{content, name}`. PDF accepts same margin params and optional layout params (`header`, `footer`, `header_align`, `footer_align`, `h1_underline_color`). Rich exports also accept `heading_text_color`, `heading_font`, `heading_font_name`, and `body_font_name` for heading/body typography customization. |
 | `GET` | `/api/export/formats` | List supported export formats |
 | `GET` | `/api/templates` | List 8 built-in templates |
 | `GET` | `/api/templates/:id` | Get template with full content |

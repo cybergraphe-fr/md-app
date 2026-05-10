@@ -118,6 +118,7 @@ LABEL org.opencontainers.image.licenses="GPL-3.0"
 #   font-dejavu     → fallback serif/sans/mono fonts for PDF rendering
 #   font-liberation → metric-compatible alternatives to Arial/Times/Courier
 #   ttf-liberation  → TrueType version of Liberation fonts
+#   font-inter      → Inter family for export/font-picker parity
 #   font-noto-emoji → Noto Emoji glyphs for PDF emoji rendering (WeasyPrint)
 #   nodejs          → Required for mermaid SSR (PDF diagram rendering)
 #   chromium        → Headless browser for mermaid-cli SVG rendering
@@ -129,6 +130,7 @@ RUN apk add --no-cache \
     font-dejavu \
     font-liberation \
     ttf-liberation \
+    font-inter \
     font-noto-emoji \
     nodejs \
     chromium \

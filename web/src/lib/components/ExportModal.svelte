@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeFileId, activeName, activeContent, layoutConfig, setLayoutConfig, type ExportHeadingFont } from '$lib/stores/files';
+  import { activeFileId, activeName, activeContent, layoutConfig, fontConfig, setLayoutConfig, type ExportHeadingFont } from '$lib/stores/files';
   import { api, type PDFExportOptions } from '$lib/api';
   import { X, Download, Loader } from 'lucide-svelte';
   import DOMPurify from 'dompurify';
@@ -68,6 +68,8 @@
       h1UnderlineColor: $layoutConfig.h1UnderlineColor,
       headingTextColor: $layoutConfig.headingTextColor,
       headingFont: $layoutConfig.exportHeadingFont,
+      headingFontName: $fontConfig.headings,
+      bodyFontName: $fontConfig.body,
     };
   }
 

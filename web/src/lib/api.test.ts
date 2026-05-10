@@ -13,6 +13,8 @@ describe('api export URL builders', () => {
       h1UnderlineColor: '#10b981',
       headingTextColor: '#111111',
       headingFont: 'serif',
+      headingFontName: 'Tangerine',
+      bodyFontName: 'Lora',
     });
 
     expect(url).toContain('/api/files/file-123/export/pdf?');
@@ -24,6 +26,8 @@ describe('api export URL builders', () => {
     expect(url).toContain('h1_underline_color=%2310b981');
     expect(url).toContain('heading_text_color=%23111111');
     expect(url).toContain('heading_font=serif');
+    expect(url).toContain('heading_font_name=Tangerine');
+    expect(url).toContain('body_font_name=Lora');
   });
 
   it('passes heading style options to non-pdf exports', () => {
