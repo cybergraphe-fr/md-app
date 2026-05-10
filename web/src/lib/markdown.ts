@@ -5,6 +5,13 @@ const reInlineHeading = /[ \t]+(#{1,6}[ \t]+)/g;
 const reTightAtxHeading = /^(\s{0,3}#{1,6})([^\s#])/;
 const reInlineTightAtxHeading = /([ \t])(#{2,6})([^\s#])/g;
 const reTableSep = /^[\s|:\-]+$/;
+const reAtxHeading = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/;
+
+export interface TocHeading {
+  id: string;
+  text: string;
+  level: number;
+}
 
 function isListItem(line: string): boolean {
   return reListItem.test(line.trimEnd());
@@ -79,6 +86,75 @@ function normalizeInlineTableLine(line: string): string[] | null {
   if (tableRows < 2) return null;
   outRows.push('');
   return outRows;
+}
+
+export function stripHtmlTags(value: string): string {
+  return value.replace(/<[^>]*>/g, '');
+}
+
+function stripInlineMarkdown(value: string): string {
+  return value
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .trim();
+}
+
+function normalizeSlugBase(value: string): string {
+  const normalized = value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .trim()
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+  return normalized || 'section';
+}
+
+export function createHeadingSlugger(): (headingText: string) => string {
+  const seen = new Map<string, number>();
+  return (headingText: string): string => {
+    const base = normalizeSlugBase(stripInlineMarkdown(stripHtmlTags(headingText)));
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    return count === 1 ? base : `${base}-${count}`;
+  };
+}
+
+export function extractMarkdownHeadings(content: string): TocHeading[] {
+  const headings: TocHeading[] = [];
+  const slugFor = createHeadingSlugger();
+  const lines = normalizeMarkdown(content).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  let inFence = false;
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const match = rawLine.match(reAtxHeading);
+    if (!match) continue;
+
+    const level = match[1].length;
+    const text = stripInlineMarkdown(match[2]) || `Section ${headings.length + 1}`;
+    headings.push({
+      id: slugFor(text),
+      text,
+      level,
+    });
+  }
+
+  return headings;
 }
 
 export function normalizeMarkdown(content: string): string {

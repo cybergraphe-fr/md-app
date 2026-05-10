@@ -28,9 +28,9 @@
   import makefile from 'highlight.js/lib/languages/makefile';
   import mdLang from 'highlight.js/lib/languages/markdown';
   import plaintext from 'highlight.js/lib/languages/plaintext';
-  import { activeContent } from '$lib/stores/files';
+  import { activeContent, tocJumpTarget, setTOCActiveHeading } from '$lib/stores/files';
   import { hasMermaidFence, isMermaidLanguage } from '$lib/mermaid';
-  import { preprocessPreviewMarkdown } from '$lib/markdown';
+  import { createHeadingSlugger, preprocessPreviewMarkdown, stripHtmlTags } from '$lib/markdown';
 
   // Register languages for tree-shaken hljs
   hljs.registerLanguage('javascript', javascript);
@@ -112,11 +112,13 @@
   );
 
   marked.use(markedFootnote());
+  let slugForHeading = createHeadingSlugger();
+
   marked.use({
     renderer: {
       heading(this: any, { depth, tokens }: { depth: number; tokens: any[] }): string {
         const text = this.parser.parseInline(tokens);
-        const slug = text.replace(/<[^>]*>/g, '').toLowerCase().replace(/[^\w]+/g, '-');
+        const slug = slugForHeading(stripHtmlTags(text));
         return `<h${depth} id="${slug}">${text}</h${depth}>\n`;
       },
       link(this: any, { href, title, tokens }: { href: string; title?: string | null; tokens: any[] }): string {
@@ -176,7 +178,33 @@
   // ── Reactive state (Svelte 5 runes) ──
   let renderedHtml = $state('');
   let container = $state<HTMLElement | undefined>(undefined);
+  let wrapper = $state<HTMLElement | undefined>(undefined);
   let mermaidCounter = 0;
+
+  function refreshActiveHeading(): void {
+    if (!container || !wrapper) {
+      setTOCActiveHeading(null);
+      return;
+    }
+    const headings = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[];
+    if (headings.length === 0) {
+      setTOCActiveHeading(null);
+      return;
+    }
+    const wrapperTop = wrapper.getBoundingClientRect().top;
+    const threshold = wrapperTop + 72;
+    let current = headings[0];
+
+    for (const heading of headings) {
+      if (heading.getBoundingClientRect().top <= threshold) {
+        current = heading;
+      } else {
+        break;
+      }
+    }
+
+    setTOCActiveHeading(current.id || null);
+  }
 
   // Re‑render on content change
   $effect(() => {
@@ -189,6 +217,7 @@
     try {
       // Replace page break markers before parsing
       const preprocessed = preprocessPreviewMarkdown(content);
+      slugForHeading = createHeadingSlugger();
       let html = marked.parse(preprocessed) as string;
       html = processKaTeX(html);
       renderedHtml = DOMPurify.sanitize(html, { ADD_ATTR: ['data-mermaid'] });
@@ -279,6 +308,30 @@
           }
         }
       }
+
+      refreshActiveHeading();
+    }, 0);
+  });
+
+  $effect(() => {
+    const targetId = $tocJumpTarget;
+    if (!targetId || !container) return;
+
+    setTimeout(() => {
+      if (!container) return;
+      const heading = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+        .find((el) => (el as HTMLElement).id === targetId) as HTMLElement | undefined;
+
+      if (!heading) {
+        tocJumpTarget.set(null);
+        return;
+      }
+
+      heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      heading.classList.add('toc-focus');
+      window.setTimeout(() => heading.classList.remove('toc-focus'), 900);
+      setTOCActiveHeading(heading.id || null);
+      tocJumpTarget.set(null);
     }, 0);
   });
 
@@ -296,7 +349,7 @@
   };
 </script>
 
-<div class="preview-wrapper">
+<div class="preview-wrapper" bind:this={wrapper} onscroll={refreshActiveHeading}>
   <article
     class="prose preview-content"
     bind:this={container}
@@ -395,6 +448,22 @@
     background: rgba(16, 185, 129, 0.2);
     color: #10b981;
     border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  :global(.preview-content .toc-focus) {
+    scroll-margin-top: 0.75rem;
+    animation: tocFocusPulse 0.9s ease;
+  }
+
+  @keyframes tocFocusPulse {
+    0% {
+      background: color-mix(in srgb, var(--accent) 20%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    100% {
+      background: transparent;
+      box-shadow: 0 0 0 1px transparent;
+    }
   }
 
   /* Print */

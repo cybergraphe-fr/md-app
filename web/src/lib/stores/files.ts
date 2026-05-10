@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { api, type FileMeta, type FileWithContent } from '$lib/api';
+import { extractMarkdownHeadings, type TocHeading } from '$lib/markdown';
 
 // ---- State ----
 
@@ -16,6 +17,8 @@ export const theme = writable<'light' | 'dark'>('light');
 export const viewMode = writable<'split' | 'editor' | 'preview'>('split');
 export const previewFont = writable<string>('Lora');
 export const sidebarOpen = writable<boolean>(false);
+export const tocJumpTarget = writable<string | null>(null);
+export const tocActiveHeadingId = writable<string | null>(null);
 
 export type FormatActionKind =
   | 'bold'
@@ -128,6 +131,11 @@ export const activeFile = derived(
   ([$files, $id]) => $files.find((f) => f.id === $id) ?? null
 );
 
+export const tocHeadings = derived<typeof activeContent, TocHeading[]>(
+  activeContent,
+  ($activeContent) => extractMarkdownHeadings($activeContent)
+);
+
 // ---- Actions ----
 
 export async function loadFiles(): Promise<void> {
@@ -151,6 +159,8 @@ export async function openFile(id: string): Promise<void> {
     activeFileId.set(fwc.id);
     activeName.set(fwc.name);
     activeContent.set(fwc.content);
+    tocActiveHeadingId.set(null);
+    tocJumpTarget.set(null);
     isDirty.set(false);
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to open file');
@@ -192,6 +202,8 @@ export async function createFile(name = 'untitled', content = ''): Promise<void>
     activeFileId.set(f.id);
     activeName.set(f.name);
     activeContent.set(content);
+    tocActiveHeadingId.set(null);
+    tocJumpTarget.set(null);
     isDirty.set(false);
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to create file');
@@ -212,6 +224,8 @@ export async function deleteFile(id: string): Promise<void> {
       activeFileId.set(null);
       activeName.set('untitled');
       activeContent.set('');
+      tocActiveHeadingId.set(null);
+      tocJumpTarget.set(null);
       isDirty.set(false);
     }
   } catch (e: unknown) {
@@ -230,6 +244,8 @@ export async function importFile(file: File): Promise<void> {
     activeFileId.set(fwc.id);
     activeName.set(fwc.name);
     activeContent.set(fwc.content);
+    tocActiveHeadingId.set(null);
+    tocJumpTarget.set(null);
     isDirty.set(false);
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to import file');
@@ -367,4 +383,16 @@ export function triggerFormatAction(kind: FormatActionKind): void {
     id: current.id + 1,
     kind,
   }));
+}
+
+export function jumpToHeading(id: string): void {
+  if (!id) return;
+  if (get(viewMode) === 'editor') {
+    viewMode.set('split');
+  }
+  tocJumpTarget.set(id);
+}
+
+export function setTOCActiveHeading(id: string | null): void {
+  tocActiveHeadingId.set(id);
 }

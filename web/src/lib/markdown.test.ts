@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Marked } from 'marked';
 
-import { normalizeMarkdown, preprocessPreviewMarkdown } from './markdown';
+import { extractMarkdownHeadings, normalizeMarkdown, preprocessPreviewMarkdown } from './markdown';
 
 const marked = new Marked({
   gfm: true,
@@ -138,5 +138,39 @@ describe('Markdown normalization for preview', () => {
     expect(html).toContain('<h2');
     expect(html).toContain('LA BOUCLE');
     expect(html).not.toContain('## 🗺️ LA BOUCLE');
+  });
+
+  it('extracts a toc from h1 to h6 in document order', () => {
+    const content = [
+      '# Top',
+      'Some intro',
+      '## Section',
+      '### Detail',
+      '#### Deep',
+      '##### Deeper',
+      '###### Bottom',
+    ].join('\n');
+
+    const toc = extractMarkdownHeadings(content);
+    expect(toc.map((item) => item.level)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(toc.map((item) => item.text)).toEqual(['Top', 'Section', 'Detail', 'Deep', 'Deeper', 'Bottom']);
+    expect(toc[0]?.id).toBe('top');
+    expect(toc[1]?.id).toBe('section');
+  });
+
+  it('ignores headings inside fenced blocks and deduplicates heading ids', () => {
+    const content = [
+      '# Intro',
+      '```md',
+      '## Not in toc',
+      '```',
+      '## Intro',
+      '## Intro',
+    ].join('\n');
+
+    const toc = extractMarkdownHeadings(content);
+    expect(toc).toHaveLength(3);
+    expect(toc.map((item) => item.id)).toEqual(['intro', 'intro-2', 'intro-3']);
+    expect(toc.some((item) => item.text.includes('Not in toc'))).toBe(false);
   });
 });

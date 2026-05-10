@@ -32,7 +32,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 | **Typography** | Lora serif default, Inter for UI, JetBrains Mono for code |
 | **Themes** | Light / Dark, auto-detects system preference, persists in localStorage |
 | **View modes** | Split (editor + preview), Editor only, Preview only |
-| **Sidebar** | Collapsible file manager panel — toggle via toolbar button, state persisted in localStorage |
+| **Sidebar** | Collapsible file manager panel with dual navigation modes: file list + auto-generated document table of contents (H1-H6) with click-to-jump and active-section highlighting |
 | **Workspace sync** | Device-to-device workspace linking via 8-character sync code from the Synchroniser modal; includes retry UI and backend self-healing if a workspace code mapping is missing |
 | **Desktop download CTA** | Toolbar + Synchroniser modal expose OS-aware desktop download links returned by `/api/desktop/downloads`, with fallback links for other platforms |
 | **Export** | HTML, PDF (via Pandoc + WeasyPrint), DOCX, ODT, EPUB, LaTeX, RST, AsciiDoc, Textile, MediaWiki, Plain text |

@@ -2,6 +2,7 @@
 
 | Date | Heure | Description | Fichier | Statut |
 |---|---|---|---|---|
+| 2026-05-10 | 04:00 | Navigation table des matieres dans la sidebar gauche: TOC auto-generee (H1-H6), scroll cible preview, section active synchronisee, tests et documentation | [2026-05-10_0400_sidebar_toc_navigation.md](2026-05-10_0400_sidebar_toc_navigation.md) | ✅ Termine |
 | 2026-05-10 | 03:51 | Persistence style titres export: couleur titre par defaut noir, choix police/couleur, sanitation backend, prise en charge formats riches, tests | [2026-05-10_0351_export_heading_font_color_persistence.md](2026-05-10_0351_export_heading_font_color_persistence.md) | ✅ Termine |
 | 2026-05-10 | 03:40 | Nettoyage ergonomie toolbar: 2 lignes desktop, dropdowns mobile pour view/actions, suppression bouton desktop, contraste champs header/footer renforce | [2026-05-10_0340_toolbar_mobile_ergonomics_cleanup.md](2026-05-10_0340_toolbar_mobile_ergonomics_cleanup.md) | ✅ Termine |
 | 2026-05-10 | 03:03 | Personnalisation mise en page PDF/preview: couleur soulignement H1, alignement entete/pied, bouton Layout, persistance locale, sanitation backend, tests, deploy prod | [2026-05-10_0303_layout_customization_h1_header_footer.md](2026-05-10_0303_layout_customization_h1_header_footer.md) | ✅ Termine |

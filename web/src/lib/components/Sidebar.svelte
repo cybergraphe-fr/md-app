@@ -2,6 +2,8 @@
   import {
     files,
     filteredFiles,
+    tocHeadings,
+    tocActiveHeadingId,
     activeFileId,
     isLoading,
     searchQuery,
@@ -9,10 +11,12 @@
     createFile,
     deleteFile,
     importFile,
+    jumpToHeading,
   } from '$lib/stores/files';
-  import { FilePlus, Search, Trash2, Upload, FileText } from 'lucide-svelte';
+  import { FilePlus, Search, Trash2, Upload, FileText, List } from 'lucide-svelte';
 
   let fileInput: HTMLInputElement;
+  let navMode = $state<'files' | 'toc'>('files');
 
   function formatDate(iso: string): string {
     return new Intl.DateTimeFormat('fr-FR', {
@@ -91,57 +95,95 @@
     />
   </div>
 
-  <!-- File list -->
-  <div class="file-list" role="list">
-    {#if $isLoading && $files.length === 0}
-      <div class="file-list-empty">
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-      </div>
-    {:else if $filteredFiles.length === 0}
-      <div class="file-list-empty">
-        {#if $searchQuery}
-          <p>No results for "<strong>{$searchQuery}</strong>"</p>
-        {:else}
-          <FileText size={28} color="var(--text-muted)" />
-          <p>No files yet.<br />Create your first document!</p>
-          <button class="btn btn-primary" onclick={() => createFile()}>
-            <FilePlus size={14} /> New file
-          </button>
-        {/if}
-      </div>
-    {:else}
-      {#each $filteredFiles as f (f.id)}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="file-item"
-          class:active={$activeFileId === f.id}
-          onclick={() => openFile(f.id)}
-          onkeydown={(e) => { if (e.key === 'Enter') openFile(f.id); }}
-          role="button"
-          tabindex="0"
-        >
-          <div class="file-item-content">
-            <div class="file-name">{f.name || 'untitled'}</div>
-            <div class="file-meta">
-              <span>{formatDate(f.updated_at)}</span>
-              <span>{formatSize(f.size)}</span>
-            </div>
-          </div>
-          <button
-            class="btn-icon file-delete"
-            title="Delete"
-            onclick={(e) => { e.stopPropagation(); handleDelete(f.id, f.name); }}
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
-      {/each}
-    {/if}
+  <div class="sidebar-nav-toggle" role="tablist" aria-label="Sidebar navigation mode">
+    <button class="toggle-btn" class:active={navMode === 'files'} onclick={() => (navMode = 'files')}>
+      Files
+    </button>
+    <button class="toggle-btn" class:active={navMode === 'toc'} onclick={() => (navMode = 'toc')}>
+      <List size={12} />
+      Table of contents
+    </button>
   </div>
+
+  {#if navMode === 'files'}
+    <!-- File list -->
+    <div class="file-list" role="list">
+      {#if $isLoading && $files.length === 0}
+        <div class="file-list-empty">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+      {:else if $filteredFiles.length === 0}
+        <div class="file-list-empty">
+          {#if $searchQuery}
+            <p>No results for "<strong>{$searchQuery}</strong>"</p>
+          {:else}
+            <FileText size={28} color="var(--text-muted)" />
+            <p>No files yet.<br />Create your first document!</p>
+            <button class="btn btn-primary" onclick={() => createFile()}>
+              <FilePlus size={14} /> New file
+            </button>
+          {/if}
+        </div>
+      {:else}
+        {#each $filteredFiles as f (f.id)}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="file-item"
+            class:active={$activeFileId === f.id}
+            onclick={() => openFile(f.id)}
+            onkeydown={(e) => { if (e.key === 'Enter') openFile(f.id); }}
+            role="button"
+            tabindex="0"
+          >
+            <div class="file-item-content">
+              <div class="file-name">{f.name || 'untitled'}</div>
+              <div class="file-meta">
+                <span>{formatDate(f.updated_at)}</span>
+                <span>{formatSize(f.size)}</span>
+              </div>
+            </div>
+            <button
+              class="btn-icon file-delete"
+              title="Delete"
+              onclick={(e) => { e.stopPropagation(); handleDelete(f.id, f.name); }}
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {:else}
+    <div class="toc-list" role="list" aria-label="Document table of contents">
+      {#if $tocHeadings.length === 0}
+        <div class="file-list-empty">
+          <List size={26} color="var(--text-muted)" />
+          <p>No headings found in this document yet.</p>
+        </div>
+      {:else}
+        {#each $tocHeadings as item (item.id)}
+          <button
+            class="toc-item"
+            class:active={$tocActiveHeadingId === item.id}
+            style={`--toc-level:${Math.min(Math.max(item.level, 1), 6)}`}
+            onclick={() => jumpToHeading(item.id)}
+            title={`Go to ${item.text}`}
+          >
+            <span class="toc-level">H{item.level}</span>
+            <span class="toc-text">{item.text}</span>
+          </button>
+        {/each}
+      {/if}
+    </div>
+  {/if}
 
   <!-- Footer -->
   <div class="sidebar-footer">
-    <span>{$files.length} file{$files.length !== 1 ? 's' : ''}</span>
+    {#if navMode === 'files'}
+      <span>{$files.length} file{$files.length !== 1 ? 's' : ''}</span>
+    {:else}
+      <span>{$tocHeadings.length} heading{$tocHeadings.length !== 1 ? 's' : ''}</span>
+    {/if}
   </div>
 </aside>
 
@@ -209,6 +251,41 @@
     color: var(--text-muted);
   }
 
+  .sidebar-nav-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.7rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .toggle-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .toggle-btn.active {
+    background: var(--accent-surface);
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
   .search-input {
     flex: 1;
     padding: 0.35rem 0.5rem;
@@ -232,6 +309,56 @@
     flex: 1;
     overflow-y: auto;
     padding: 0.25rem 0;
+  }
+
+  .toc-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .toc-item {
+    width: calc(100% - 0.45rem);
+    margin: 0 0.225rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.38rem 0.42rem;
+    padding-left: calc(0.42rem + (var(--toc-level) - 1) * 0.5rem);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-ui);
+  }
+  .toc-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .toc-item.active {
+    background: var(--accent-surface);
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+    color: var(--accent);
+  }
+
+  .toc-level {
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0.75;
+    letter-spacing: 0.04em;
+  }
+
+  .toc-text {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .file-list-empty {
