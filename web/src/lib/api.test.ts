@@ -12,6 +12,8 @@ describe('api export URL builders', () => {
       footerAlign: 'center',
       h1UnderlineColor: '#10b981',
       headingTextColor: '#111111',
+      h2TextColor: '#1e293b',
+      h2UnderlineColor: '#94a3b8',
       headingFont: 'serif',
       headingFontName: 'Tangerine',
       bodyFontName: 'Lora',
@@ -25,6 +27,8 @@ describe('api export URL builders', () => {
     expect(url).toContain('footer_align=center');
     expect(url).toContain('h1_underline_color=%2310b981');
     expect(url).toContain('heading_text_color=%23111111');
+    expect(url).toContain('h2_text_color=%231e293b');
+    expect(url).toContain('h2_underline_color=%2394a3b8');
     expect(url).toContain('heading_font=serif');
     expect(url).toContain('heading_font_name=Tangerine');
     expect(url).toContain('body_font_name=Lora');

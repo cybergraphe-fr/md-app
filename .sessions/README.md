@@ -2,6 +2,7 @@
 
 | Date | Heure | Description | Fichier | Statut |
 |---|---|---|---|---|
+| 2026-05-10 | 04:55 | Correctif export PDF footer centre (evite multiline), personnalisation H2 (couleur texte + soulignement), ergonomie Layout amelioree, validations CI/deploy | [2026-05-10_0455_footer_center_h2_layout_personalization.md](2026-05-10_0455_footer_center_h2_layout_personalization.md) | ✅ Termine |
 | 2026-05-10 | 04:24 | Correctif fidelite polices export PDF (Tangerine/Lora) + contraste dropdown FontPicker en theme clair + CI/CD vert | [2026-05-10_0424_pdf_fonts_fidelity_and_fontpicker_contrast.md](2026-05-10_0424_pdf_fonts_fidelity_and_fontpicker_contrast.md) | ✅ Termine |
 | 2026-05-10 | 04:08 | Synchronisation TOC cote editeur CodeMirror + stabilisation pipeline CI (lint desktop errcheck et cible Makefile check corrigees) | [2026-05-10_0408_toc_editor_sync_and_ci_green.md](2026-05-10_0408_toc_editor_sync_and_ci_green.md) | ✅ Termine |
 | 2026-05-10 | 04:00 | Navigation table des matieres dans la sidebar gauche: TOC auto-generee (H1-H6), scroll cible preview, section active synchronisee, tests et documentation | [2026-05-10_0400_sidebar_toc_navigation.md](2026-05-10_0400_sidebar_toc_navigation.md) | ✅ Termine |

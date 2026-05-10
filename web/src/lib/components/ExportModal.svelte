@@ -31,7 +31,9 @@
   const maxDecorLength = 120;
   const layoutColorPattern = /^#[0-9a-fA-F]{6}$/;
   const h1UnderlinePresets = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const h2UnderlinePresets = ['#cbd5e1', '#94a3b8', '#64748b', '#2563eb', '#0ea5e9', '#10b981'];
   const headingTextPresets = ['#111111', '#0f172a', '#1f2937', '#374151', '#000000', '#475569'];
+  const h2TextPresets = ['#111111', '#1e293b', '#334155', '#0f172a', '#2563eb', '#0ea5e9'];
   const headingFontOptions: Array<{ id: ExportHeadingFont; label: string; desc: string }> = [
     { id: 'sans', label: 'Sans', desc: 'Modern, clean heading style' },
     { id: 'serif', label: 'Serif', desc: 'Classic publishing style' },
@@ -67,6 +69,8 @@
       footerAlign: $layoutConfig.footerAlign,
       h1UnderlineColor: $layoutConfig.h1UnderlineColor,
       headingTextColor: $layoutConfig.headingTextColor,
+      h2TextColor: $layoutConfig.h2TextColor,
+      h2UnderlineColor: $layoutConfig.h2UnderlineColor,
       headingFont: $layoutConfig.exportHeadingFont,
       headingFontName: $fontConfig.headings,
       bodyFontName: $fontConfig.body,
@@ -79,6 +83,18 @@
     setLayoutConfig('h1UnderlineColor', normalized.toLowerCase());
   }
 
+  function updateH2TextColor(raw: string): void {
+    const normalized = raw.trim();
+    if (!layoutColorPattern.test(normalized)) return;
+    setLayoutConfig('h2TextColor', normalized.toLowerCase());
+  }
+
+  function updateH2UnderlineColor(raw: string): void {
+    const normalized = raw.trim();
+    if (!layoutColorPattern.test(normalized)) return;
+    setLayoutConfig('h2UnderlineColor', normalized.toLowerCase());
+  }
+
   function updateHeadingTextColor(raw: string): void {
     const normalized = raw.trim();
     if (!layoutColorPattern.test(normalized)) return;
@@ -88,6 +104,8 @@
   function resetLayoutDefaults(): void {
     setLayoutConfig('h1UnderlineColor', '#2563eb');
     setLayoutConfig('headingTextColor', '#111111');
+    setLayoutConfig('h2TextColor', '#111111');
+    setLayoutConfig('h2UnderlineColor', '#cbd5e1');
     setLayoutConfig('exportHeadingFont', 'sans');
     setLayoutConfig('headerAlign', 'center');
     setLayoutConfig('footerAlign', 'left');
@@ -236,6 +254,8 @@
         </div>
 
         <div class="layout-custom-grid">
+          <div class="layout-group-title">Heading style</div>
+
           <div class="decor-field">
             <span class="decor-label">Heading font</span>
             <div class="font-choice-row">
@@ -287,6 +307,39 @@
           </div>
 
           <div class="decor-field">
+            <span class="decor-label">H2 text color</span>
+            <div class="color-row">
+              <input
+                class="color-input"
+                type="color"
+                value={$layoutConfig.h2TextColor}
+                onchange={(e) => updateH2TextColor((e.currentTarget as HTMLInputElement).value)}
+                aria-label="H2 text color"
+              />
+              <input
+                class="decor-input color-hex-input"
+                type="text"
+                maxlength="7"
+                value={$layoutConfig.h2TextColor}
+                placeholder="#111111"
+                onchange={(e) => updateH2TextColor((e.currentTarget as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="swatch-row">
+              {#each h2TextPresets as swatch}
+                <button
+                  type="button"
+                  class="swatch-btn"
+                  class:active={$layoutConfig.h2TextColor === swatch}
+                  style={`--swatch:${swatch}`}
+                  title={swatch}
+                  onclick={() => setLayoutConfig('h2TextColor', swatch)}
+                ></button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="decor-field">
             <span class="decor-label">H1 underline color</span>
             <div class="color-row">
               <input
@@ -314,6 +367,39 @@
                   style={`--swatch:${swatch}`}
                   title={swatch}
                   onclick={() => setLayoutConfig('h1UnderlineColor', swatch)}
+                ></button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="decor-field">
+            <span class="decor-label">H2 underline color</span>
+            <div class="color-row">
+              <input
+                class="color-input"
+                type="color"
+                value={$layoutConfig.h2UnderlineColor}
+                onchange={(e) => updateH2UnderlineColor((e.currentTarget as HTMLInputElement).value)}
+                aria-label="H2 underline color"
+              />
+              <input
+                class="decor-input color-hex-input"
+                type="text"
+                maxlength="7"
+                value={$layoutConfig.h2UnderlineColor}
+                placeholder="#cbd5e1"
+                onchange={(e) => updateH2UnderlineColor((e.currentTarget as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="swatch-row">
+              {#each h2UnderlinePresets as swatch}
+                <button
+                  type="button"
+                  class="swatch-btn"
+                  class:active={$layoutConfig.h2UnderlineColor === swatch}
+                  style={`--swatch:${swatch}`}
+                  title={swatch}
+                  onclick={() => setLayoutConfig('h2UnderlineColor', swatch)}
                 ></button>
               {/each}
             </div>
@@ -689,6 +775,27 @@
     display: grid;
     gap: 0.75rem;
     grid-template-columns: 1fr;
+  }
+
+  .layout-group-title {
+    margin-top: 0.1rem;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-ui);
+  }
+
+  @media (min-width: 680px) {
+    .layout-custom-grid {
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+    }
+
+    .layout-group-title {
+      grid-column: 1 / -1;
+    }
   }
 
   .font-choice-row {

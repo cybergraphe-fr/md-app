@@ -25,6 +25,8 @@
   --font-headings: var(--font-prose);
   --font-body: var(--font-prose);
   --doc-h1-underline: #2563eb;
+  --doc-h2-color: #111111;
+  --doc-h2-underline: #cbd5e1;
 
   /* Dark theme (default) */
   --bg-app: #09090b;
@@ -217,7 +219,15 @@ html, body {
   border-bottom: 2px solid var(--doc-h1-underline);
   letter-spacing: -0.02em;
 }
-.prose h2 { font-size: 1.55rem; font-weight: 600; margin: 1.75rem 0 0.6rem; letter-spacing: -0.01em; }
+.prose h2 {
+  font-size: 1.55rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.6rem;
+  letter-spacing: -0.01em;
+  color: var(--doc-h2-color);
+  border-bottom: 1px solid var(--doc-h2-underline);
+  padding-bottom: 0.18rem;
+}
 .prose h3 { font-size: 1.25rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
 .prose h4 { font-size: 1.1rem; font-weight: 600; margin: 1.25rem 0 0.4rem; }
 .prose h5, .prose h6 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.3rem; }

@@ -63,6 +63,8 @@ export type ExportHeadingFont = 'sans' | 'serif' | 'mono';
 export interface LayoutConfig {
   h1UnderlineColor: string;
   headingTextColor: string;
+  h2TextColor: string;
+  h2UnderlineColor: string;
   exportHeadingFont: ExportHeadingFont;
   headerAlign: HeaderFooterAlign;
   footerAlign: HeaderFooterAlign;
@@ -71,6 +73,8 @@ export interface LayoutConfig {
 const defaultLayoutConfig: LayoutConfig = {
   h1UnderlineColor: '#2563eb',
   headingTextColor: '#111111',
+  h2TextColor: '#111111',
+  h2UnderlineColor: '#cbd5e1',
   exportHeadingFont: 'sans',
   headerAlign: 'center',
   footerAlign: 'left',
@@ -89,19 +93,21 @@ function isExportHeadingFont(value: unknown): value is ExportHeadingFont {
   return value === 'sans' || value === 'serif' || value === 'mono';
 }
 
-function sanitizeLayoutColor(value: unknown): string {
-  if (typeof value !== 'string') return defaultLayoutConfig.h1UnderlineColor;
+function sanitizeLayoutColor(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
   const trimmed = value.trim();
   if (layoutColorPattern.test(trimmed)) return trimmed.toLowerCase();
-  return defaultLayoutConfig.h1UnderlineColor;
+  return fallback;
 }
 
 function normalizeLayoutConfig(raw: unknown): LayoutConfig {
   if (!raw || typeof raw !== 'object') return { ...defaultLayoutConfig };
   const source = raw as Partial<LayoutConfig>;
   return {
-    h1UnderlineColor: sanitizeLayoutColor(source.h1UnderlineColor),
-    headingTextColor: sanitizeLayoutColor(source.headingTextColor),
+    h1UnderlineColor: sanitizeLayoutColor(source.h1UnderlineColor, defaultLayoutConfig.h1UnderlineColor),
+    headingTextColor: sanitizeLayoutColor(source.headingTextColor, defaultLayoutConfig.headingTextColor),
+    h2TextColor: sanitizeLayoutColor(source.h2TextColor, defaultLayoutConfig.h2TextColor),
+    h2UnderlineColor: sanitizeLayoutColor(source.h2UnderlineColor, defaultLayoutConfig.h2UnderlineColor),
     exportHeadingFont: isExportHeadingFont(source.exportHeadingFont) ? source.exportHeadingFont : defaultLayoutConfig.exportHeadingFont,
     headerAlign: isHeaderFooterAlign(source.headerAlign) ? source.headerAlign : defaultLayoutConfig.headerAlign,
     footerAlign: isHeaderFooterAlign(source.footerAlign) ? source.footerAlign : defaultLayoutConfig.footerAlign,
@@ -110,6 +116,8 @@ function normalizeLayoutConfig(raw: unknown): LayoutConfig {
 
 function applyLayoutConfig(cfg: LayoutConfig): void {
   document.documentElement.style.setProperty('--doc-h1-underline', cfg.h1UnderlineColor);
+  document.documentElement.style.setProperty('--doc-h2-color', cfg.h2TextColor);
+  document.documentElement.style.setProperty('--doc-h2-underline', cfg.h2UnderlineColor);
 }
 
 export function setLayoutConfig<K extends keyof LayoutConfig>(key: K, value: LayoutConfig[K]): void {

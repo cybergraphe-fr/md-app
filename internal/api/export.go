@@ -157,6 +157,8 @@ type pdfPageDecor struct {
 	FooterAlign      string
 	H1UnderlineColor string
 	HeadingTextColor string
+	H2TextColor      string
+	H2UnderlineColor string
 	HeadingFont      string
 	HeadingFontName  string
 	BodyFontName     string
@@ -165,6 +167,8 @@ type pdfPageDecor struct {
 const maxPDFDecorLength = 120
 const defaultPDFDecorAlign = "center"
 const defaultExportHeadingTextColor = "#111111"
+const defaultExportH2TextColor = "#111111"
+const defaultExportH2UnderlineColor = "#cbd5e1"
 const defaultExportHeadingFont = "sans"
 
 var allowedExportFontNames = map[string]struct{}{
@@ -217,10 +221,20 @@ func parsePageDecor(r *http.Request) pdfPageDecor {
 		FooterAlign:      sanitizePDFDecorAlign(r.URL.Query().Get("footer_align"), "left"),
 		H1UnderlineColor: sanitizePDFHexColor(r.URL.Query().Get("h1_underline_color")),
 		HeadingTextColor: sanitizePDFHexColorWithDefault(r.URL.Query().Get("heading_text_color"), defaultExportHeadingTextColor),
+		H2TextColor:      sanitizePDFHexColorWithDefault(r.URL.Query().Get("h2_text_color"), defaultExportH2TextColor),
+		H2UnderlineColor: sanitizePDFHexColorWithDefault(r.URL.Query().Get("h2_underline_color"), defaultExportH2UnderlineColor),
 		HeadingFont:      sanitizeHeadingFont(r.URL.Query().Get("heading_font")),
 		HeadingFontName:  sanitizeExportFontName(r.URL.Query().Get("heading_font_name")),
 		BodyFontName:     sanitizeExportFontName(r.URL.Query().Get("body_font_name")),
 	}
+}
+
+func pageDecorBoxRule(position string, align string, content string) string {
+	if align == "center" {
+		return fmt.Sprintf(" @%s-center { content: ''; } @%s-left { content: %s; width: 100%%; text-align: center; white-space: nowrap; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }", position, position, content)
+	}
+
+	return fmt.Sprintf(" @%s-%s { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; white-space: nowrap; }", position, align, content)
 }
 
 func sanitizeExportFontName(raw string) string {
@@ -403,6 +417,14 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	if headingColor == "" {
 		headingColor = defaultExportHeadingTextColor
 	}
+	h2TextColor := decor.H2TextColor
+	if h2TextColor == "" {
+		h2TextColor = defaultExportH2TextColor
+	}
+	h2UnderlineColor := decor.H2UnderlineColor
+	if h2UnderlineColor == "" {
+		h2UnderlineColor = defaultExportH2UnderlineColor
+	}
 
 	headingFont := decor.HeadingFont
 	if headingFont == "" {
@@ -414,12 +436,14 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	overrideFooter := decor.Footer != ""
 	overrideUnderline := decor.H1UnderlineColor != ""
 	overrideHeadingColor := headingColor != defaultExportHeadingTextColor
+	overrideH2TextColor := h2TextColor != defaultExportH2TextColor
+	overrideH2UnderlineColor := h2UnderlineColor != defaultExportH2UnderlineColor
 	overrideHeadingFont := headingFont != defaultExportHeadingFont
 	overrideHeadingFontName := decor.HeadingFontName != ""
 	overrideBodyFontName := decor.BodyFontName != ""
 	overridePageDecor := overrideMargins || overrideHeader || overrideFooter
 
-	if !overridePageDecor && !overrideUnderline && !overrideHeadingColor && !overrideHeadingFont && !overrideHeadingFontName && !overrideBodyFontName {
+	if !overridePageDecor && !overrideUnderline && !overrideHeadingColor && !overrideH2TextColor && !overrideH2UnderlineColor && !overrideHeadingFont && !overrideHeadingFontName && !overrideBodyFontName {
 		return ""
 	}
 
@@ -432,18 +456,10 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 			fmt.Fprintf(&css, " margin: %s %s %s %s;", m.Top, m.Right, m.Bottom, m.Left)
 		}
 		if overrideHeader {
-			fmt.Fprintf(&css,
-				" @top-%s { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
-				decor.HeaderAlign,
-				cssContentString(decor.Header),
-			)
+			css.WriteString(pageDecorBoxRule("top", decor.HeaderAlign, cssContentString(decor.Header)))
 		}
 		if overrideFooter {
-			fmt.Fprintf(&css,
-				" @bottom-%s { content: %s; font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #6b7280; }",
-				decor.FooterAlign,
-				cssContentString(decor.Footer),
-			)
+			css.WriteString(pageDecorBoxRule("bottom", decor.FooterAlign, cssContentString(decor.Footer)))
 		}
 		css.WriteString(" }")
 
@@ -477,6 +493,17 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 			" body, p, li, td, th, blockquote, dd { font-family: %s; }",
 			exportFontFamilyFromName(decor.BodyFontName, "'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"),
 		)
+	}
+
+	if overrideH2TextColor || overrideH2UnderlineColor {
+		css.WriteString(" h2 {")
+		if overrideH2TextColor {
+			fmt.Fprintf(&css, " color: %s;", h2TextColor)
+		}
+		if overrideH2UnderlineColor {
+			fmt.Fprintf(&css, " border-bottom-color: %s;", h2UnderlineColor)
+		}
+		css.WriteString(" }")
 	}
 
 	css.WriteString("</style>")
@@ -623,7 +650,15 @@ func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFi
 			headingFamily = exportFontFamilyFromName(decor.HeadingFontName, headingFamily)
 		}
 		bodyFamily := exportFontFamilyFromName(decor.BodyFontName, "'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif")
-		headingCSS := fmt.Sprintf("h1,h2,h3,h4,h5,h6{color:%s;font-family:%s;} body,p,li,td,th,blockquote,dd{font-family:%s;} h1{border-bottom-color:%s;}", decor.HeadingTextColor, headingFamily, bodyFamily, defaultExportHeadingTextColor)
+		h2TextColor := decor.H2TextColor
+		if h2TextColor == "" {
+			h2TextColor = defaultExportH2TextColor
+		}
+		h2UnderlineColor := decor.H2UnderlineColor
+		if h2UnderlineColor == "" {
+			h2UnderlineColor = defaultExportH2UnderlineColor
+		}
+		headingCSS := fmt.Sprintf("h1,h2,h3,h4,h5,h6{color:%s;font-family:%s;} body,p,li,td,th,blockquote,dd{font-family:%s;} h1{border-bottom-color:%s;} h2{color:%s;border-bottom-color:%s;}", decor.HeadingTextColor, headingFamily, bodyFamily, defaultExportHeadingTextColor, h2TextColor, h2UnderlineColor)
 		cssFile := filepath.Join(filepath.Dir(outputFile), "export-heading.css")
 		if err := os.WriteFile(cssFile, []byte(headingCSS), 0600); err != nil {
 			return fmt.Errorf("write export css: %w", err)

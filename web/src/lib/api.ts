@@ -91,6 +91,8 @@ export interface PDFExportOptions {
   footerAlign?: 'left' | 'center' | 'right';
   h1UnderlineColor?: string;
   headingTextColor?: string;
+  h2TextColor?: string;
+  h2UnderlineColor?: string;
   headingFont?: 'sans' | 'serif' | 'mono';
   headingFontName?: string;
   bodyFontName?: string;
@@ -114,6 +116,8 @@ function buildExportQuery(format: string, options?: string | PDFExportOptions): 
   const footerAlign = normalized.footerAlign?.trim();
   const h1UnderlineColor = normalized.h1UnderlineColor?.trim();
   const headingTextColor = normalized.headingTextColor?.trim();
+  const h2TextColor = normalized.h2TextColor?.trim();
+  const h2UnderlineColor = normalized.h2UnderlineColor?.trim();
   const headingFont = normalized.headingFont?.trim();
   const headingFontName = normalized.headingFontName?.trim();
   const bodyFontName = normalized.bodyFontName?.trim();
@@ -128,6 +132,8 @@ function buildExportQuery(format: string, options?: string | PDFExportOptions): 
 
   if (h1UnderlineColor) params.set('h1_underline_color', h1UnderlineColor);
   if (headingTextColor) params.set('heading_text_color', headingTextColor);
+  if (h2TextColor) params.set('h2_text_color', h2TextColor);
+  if (h2UnderlineColor) params.set('h2_underline_color', h2UnderlineColor);
   if (headingFont) params.set('heading_font', headingFont);
   if (headingFontName) params.set('heading_font_name', headingFontName);
   if (bodyFontName) params.set('body_font_name', bodyFontName);
