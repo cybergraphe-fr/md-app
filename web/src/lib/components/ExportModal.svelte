@@ -598,14 +598,16 @@
     min-height: 34px;
     padding: 0.45rem 0.55rem;
     background: var(--bg-surface);
-    color: var(--text-primary);
+    color: #0f172a;
     font-size: 13px;
     font-family: var(--font-ui);
+    font-weight: 500;
+    caret-color: #0f172a;
     transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
   }
 
   .decor-input::placeholder {
-    color: var(--text-secondary);
+    color: #64748b;
   }
 
   .decor-input:focus-visible {
@@ -731,6 +733,16 @@
   :global([data-theme='light']) .decor-input {
     border-color: rgba(15, 23, 42, 0.16);
     background: rgba(255, 255, 255, 0.96);
+  }
+
+  :global([data-theme='dark']) .decor-input {
+    color: #f8fafc;
+    caret-color: #f8fafc;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  :global([data-theme='dark']) .decor-input::placeholder {
+    color: #94a3b8;
   }
 
   :global([data-theme='light']) .color-input,

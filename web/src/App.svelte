@@ -83,7 +83,6 @@
         onSearch={() => (searchOpen = true)}
         onHistory={() => (historyOpen = true)}
         onSync={() => (syncOpen = true)}
-        onDesktopDownloads={() => (syncOpen = true)}
       />
 
       <!-- Error banner -->

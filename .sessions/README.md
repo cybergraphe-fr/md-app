@@ -2,6 +2,7 @@
 
 | Date | Heure | Description | Fichier | Statut |
 |---|---|---|---|---|
+| 2026-05-10 | 03:40 | Nettoyage ergonomie toolbar: 2 lignes desktop, dropdowns mobile pour view/actions, suppression bouton desktop, contraste champs header/footer renforce | [2026-05-10_0340_toolbar_mobile_ergonomics_cleanup.md](2026-05-10_0340_toolbar_mobile_ergonomics_cleanup.md) | ✅ Termine |
 | 2026-05-10 | 03:03 | Personnalisation mise en page PDF/preview: couleur soulignement H1, alignement entete/pied, bouton Layout, persistance locale, sanitation backend, tests, deploy prod | [2026-05-10_0303_layout_customization_h1_header_footer.md](2026-05-10_0303_layout_customization_h1_header_footer.md) | ✅ Termine |
 | 2026-04-07 | 17:32 | Installateurs desktop + URLs web: packaging EXE/DMG/PKG, integration workflow, liaison des URLs md.cybergraphe.fr dans la vue web | [2026-04-07_1732_desktop_installers_and_web_urls.md](2026-04-07_1732_desktop_installers_and_web_urls.md) | ✅ Termine |
 | 2026-04-07 | 16:14 | Typecheck hardening TS config: correction `allowImportingTsExtensions` pour supprimer l erreur IDE et revalidation frontend complete | [2026-04-07_1614_tsconfig_typecheck_hardening.md](2026-04-07_1614_tsconfig_typecheck_hardening.md) | ✅ Termine |

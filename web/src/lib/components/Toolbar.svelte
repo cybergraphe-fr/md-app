@@ -47,6 +47,7 @@
     Quote,
     Link2,
     RefreshCw,
+    Menu,
   } from 'lucide-svelte';
 
   export let onExport: () => void;
@@ -54,7 +55,6 @@
   export let onSearch: () => void;
   export let onHistory: () => void;
   export let onSync: () => void;
-  export let onDesktopDownloads: () => void;
   export let onLayout: () => void;
 
   const viewIcons: Record<string, typeof Columns2> = {
@@ -111,9 +111,14 @@
   }
   let showShortcuts = false;
 
-  function toggleShortcuts(e: MouseEvent): void {
-    e.stopPropagation();
+  function toggleShortcuts(e?: MouseEvent): void {
+    e?.stopPropagation();
     showShortcuts = !showShortcuts;
+  }
+
+  function setViewModeFromSelect(e: Event): void {
+    const value = (e.currentTarget as HTMLSelectElement).value as 'split' | 'editor' | 'preview';
+    viewMode.set(value);
   }
 
   function closeShortcuts(): void {
@@ -124,135 +129,172 @@
 <svelte:window onkeydown={handleKeyboardShortcuts} onclick={closeShortcuts} />
 
 <header class="toolbar no-print">
-  <!-- Left: sidebar toggle + title -->
-  <div class="toolbar-left">
-    <button
-      class="btn btn-icon sidebar-toggle"
-      title={$sidebarOpen ? 'Hide files panel' : 'Show files panel'}
-      onclick={toggleSidebar}
-    >
-      {#if $sidebarOpen}
-        <PanelLeftClose size={16} />
-      {:else}
-        <PanelLeft size={16} />
-      {/if}
-    </button>
-    <input
-      class="doc-title"
-      type="text"
-      bind:value={$activeName}
-      placeholder="Untitled document"
-      spellcheck="false"
-    />
-    {#if $isDirty}
-      <span class="dirty-indicator" title="Unsaved changes">●</span>
-    {/if}
-  </div>
-
-  <!-- Center: view mode -->
-  <div class="toolbar-center">
-    {#each viewEntries as [mode, label]}
-      {@const IconComp = viewIcons[mode]}
+  <div class="toolbar-top">
+    <div class="toolbar-left">
       <button
-        class="btn btn-icon view-btn"
-        class:active={$viewMode === mode}
-        title={label}
-        onclick={() => viewMode.set(mode as 'split' | 'editor' | 'preview')}
+        class="btn btn-icon sidebar-toggle"
+        title={$sidebarOpen ? 'Hide files panel' : 'Show files panel'}
+        onclick={toggleSidebar}
       >
-        <IconComp size={15} />
-        <span class="view-label">{label}</span>
+        {#if $sidebarOpen}
+          <PanelLeftClose size={16} />
+        {:else}
+          <PanelLeft size={16} />
+        {/if}
       </button>
-    {/each}
-  </div>
-
-  <!-- Right: actions -->
-  <div class="toolbar-right">
-    <button
-      class="btn"
-      class:btn-primary={$isDirty}
-      disabled={$isSaving}
-      title="Save (Ctrl+S)"
-      onclick={handleSave}
-    >
-      <Save size={14} />
-      {$isSaving ? 'Saving…' : 'Save'}
-    </button>
-
-    <div class="divider-v"></div>
-
-    <button class="btn" title="New file" onclick={() => createFile()}>
-      <FilePlus size={14} />
-    </button>
-
-    <button class="btn" title="From template" onclick={onTemplates}>
-      <LayoutTemplate size={14} />
-    </button>
-
-    <button class="btn" title="Search (Ctrl+K)" onclick={onSearch}>
-      <Search size={14} />
-    </button>
-
-    {#if $activeFileId}
-      <button class="btn" title="Version history" onclick={onHistory}>
-        <History size={14} />
-      </button>
-    {/if}
-
-    <button class="btn" title="Export" onclick={onExport}>
-      <Download size={14} />
-      Export
-    </button>
-
-    <button class="btn" title="Layout personalization" onclick={onLayout}>
-      <SlidersHorizontal size={14} />
-      Layout
-    </button>
-
-    <button class="btn" title="Print" onclick={handlePrint}>
-      <Printer size={14} />
-    </button>
-
-    <div class="divider-v"></div>
-
-    <FontPicker />
-
-    <button class="btn btn-icon" title="Toggle theme" onclick={toggleTheme}>
-      {#if $theme === 'dark'}
-        <Sun size={15} />
-      {:else}
-        <Moon size={15} />
+      <input
+        class="doc-title"
+        type="text"
+        bind:value={$activeName}
+        placeholder="Untitled document"
+        spellcheck="false"
+      />
+      {#if $isDirty}
+        <span class="dirty-indicator" title="Unsaved changes">●</span>
       {/if}
-    </button>
+    </div>
 
-    <button class="btn btn-icon" title="Synchroniser" onclick={onSync}>
-      <RefreshCw size={15} />
-    </button>
+    <div class="toolbar-primary">
+      <button
+        class="btn"
+        class:btn-primary={$isDirty}
+        disabled={$isSaving}
+        title="Save (Ctrl+S)"
+        onclick={handleSave}
+      >
+        <Save size={14} />
+        {$isSaving ? 'Saving…' : 'Save'}
+      </button>
 
-    <button class="btn" title="Telecharger le client desktop" onclick={onDesktopDownloads}>
-      <Download size={14} />
-      Desktop
-    </button>
+      <button class="btn desktop-only" title="New file" onclick={() => createFile()}>
+        <FilePlus size={14} />
+        New
+      </button>
 
-    <button
-      class="btn btn-icon"
-      title="Keyboard shortcuts"
-      onclick={toggleShortcuts}
-    >
-      <Keyboard size={15} />
-    </button>
-    {#if showShortcuts}
-      <div class="shortcuts-popover">
-        <div class="shortcuts-title">Keyboard Shortcuts</div>
-        <ul class="shortcuts-list">
-          <li><kbd>Ctrl+S</kbd> Save</li>
-          <li><kbd>Ctrl+B</kbd> Bold</li>
-          <li><kbd>Ctrl+I</kbd> Italic</li>
-          <li><kbd>Ctrl+K</kbd> Link / Search</li>
-          <li><kbd>Ctrl+Shift+P</kbd> Toggle preview</li>
-        </ul>
-      </div>
-    {/if}
+      <button class="btn desktop-only" title="Export" onclick={onExport}>
+        <Download size={14} />
+        Export
+      </button>
+
+      <button class="btn desktop-only" title="Layout personalization" onclick={onLayout}>
+        <SlidersHorizontal size={14} />
+        Layout
+      </button>
+
+      <button class="btn desktop-only" title="Print" onclick={handlePrint}>
+        <Printer size={14} />
+        Print
+      </button>
+    </div>
   </div>
+
+  <div class="toolbar-bottom">
+    <div class="toolbar-center desktop-only">
+      {#each viewEntries as [mode, label]}
+        {@const IconComp = viewIcons[mode]}
+        <button
+          class="btn btn-icon view-btn"
+          class:active={$viewMode === mode}
+          title={label}
+          onclick={() => viewMode.set(mode as 'split' | 'editor' | 'preview')}
+        >
+          <IconComp size={15} />
+          <span class="view-label">{label}</span>
+        </button>
+      {/each}
+    </div>
+
+    <div class="toolbar-secondary desktop-only">
+      <button class="btn" title="From template" onclick={onTemplates}>
+        <LayoutTemplate size={14} />
+      </button>
+
+      <button class="btn" title="Search (Ctrl+K)" onclick={onSearch}>
+        <Search size={14} />
+      </button>
+
+      {#if $activeFileId}
+        <button class="btn" title="Version history" onclick={onHistory}>
+          <History size={14} />
+        </button>
+      {/if}
+
+      <div class="divider-v"></div>
+
+      <FontPicker />
+
+      <button class="btn btn-icon" title="Toggle theme" onclick={toggleTheme}>
+        {#if $theme === 'dark'}
+          <Sun size={15} />
+        {:else}
+          <Moon size={15} />
+        {/if}
+      </button>
+
+      <button class="btn btn-icon" title="Synchroniser" onclick={onSync}>
+        <RefreshCw size={15} />
+      </button>
+
+      <button
+        class="btn btn-icon"
+        title="Keyboard shortcuts"
+        onclick={toggleShortcuts}
+      >
+        <Keyboard size={15} />
+      </button>
+    </div>
+
+    <div class="mobile-controls mobile-only">
+      <label class="mobile-view">
+        <span>View</span>
+        <select value={$viewMode} onchange={setViewModeFromSelect}>
+          <option value="split">Split</option>
+          <option value="editor">Editor</option>
+          <option value="preview">Preview</option>
+        </select>
+      </label>
+
+      <details class="mobile-menu">
+        <summary class="btn btn-icon" aria-label="Open actions menu">
+          <Menu size={16} />
+          Actions
+        </summary>
+        <div class="mobile-menu-panel">
+          <button class="btn" onclick={() => createFile()}><FilePlus size={14} /> New</button>
+          <button class="btn" onclick={onTemplates}><LayoutTemplate size={14} /> Templates</button>
+          <button class="btn" onclick={onSearch}><Search size={14} /> Search</button>
+          {#if $activeFileId}
+            <button class="btn" onclick={onHistory}><History size={14} /> History</button>
+          {/if}
+          <button class="btn" onclick={onExport}><Download size={14} /> Export</button>
+          <button class="btn" onclick={onLayout}><SlidersHorizontal size={14} /> Layout</button>
+          <button class="btn" onclick={handlePrint}><Printer size={14} /> Print</button>
+          <button class="btn" onclick={onSync}><RefreshCw size={14} /> Sync</button>
+          <button class="btn" onclick={toggleTheme}>
+            {#if $theme === 'dark'}
+              <Sun size={14} /> Light mode
+            {:else}
+              <Moon size={14} /> Dark mode
+            {/if}
+          </button>
+          <button class="btn" onclick={() => toggleShortcuts()}><Keyboard size={14} /> Shortcuts</button>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  {#if showShortcuts}
+    <div class="shortcuts-popover">
+      <div class="shortcuts-title">Keyboard Shortcuts</div>
+      <ul class="shortcuts-list">
+        <li><kbd>Ctrl+S</kbd> Save</li>
+        <li><kbd>Ctrl+B</kbd> Bold</li>
+        <li><kbd>Ctrl+I</kbd> Italic</li>
+        <li><kbd>Ctrl+K</kbd> Link / Search</li>
+        <li><kbd>Ctrl+Shift+P</kbd> Toggle preview</li>
+      </ul>
+    </div>
+  {/if}
 </header>
 
 <div class="quick-format no-print" aria-label="Quick formatting toolbar" role="toolbar">
@@ -272,10 +314,10 @@
 
 <style>
   .toolbar {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 0.4rem;
     padding: 0.45rem 1rem;
     background: var(--bg-toolbar);
     backdrop-filter: var(--glass-blur);
@@ -284,12 +326,24 @@
     z-index: 10;
   }
 
+  .toolbar-top,
+  .toolbar-bottom {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+  }
+
+  .toolbar-bottom {
+    justify-content: space-between;
+  }
+
   .toolbar-left {
     display: flex;
     align-items: center;
     gap: 0.4rem;
     flex: 1;
-    min-width: 240px;
+    min-width: 220px;
   }
 
   .toolbar-center {
@@ -301,13 +355,21 @@
     padding: 2px;
   }
 
-  .toolbar-right {
+  .toolbar-primary,
+  .toolbar-secondary {
     display: flex;
     align-items: center;
     gap: 0.3rem;
-    flex: 1;
     justify-content: flex-end;
-    min-width: 250px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-primary {
+    margin-left: auto;
+  }
+
+  .toolbar-secondary {
+    margin-left: auto;
   }
 
   .doc-title {
@@ -403,33 +465,113 @@
   }
   .sidebar-toggle:hover { color: var(--accent); }
 
+  .mobile-only {
+    display: none;
+  }
+
+  .mobile-controls {
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mobile-view {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+  }
+
+  .mobile-view select {
+    min-height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .mobile-menu {
+    margin-left: auto;
+    position: relative;
+  }
+
+  .mobile-menu > summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .mobile-menu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-menu-panel {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 60;
+    width: min(86vw, 260px);
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .mobile-menu-panel .btn {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   @media (max-width: 1024px) {
     .toolbar {
       padding: 0.45rem 0.75rem;
       gap: 0.4rem;
     }
 
-    .toolbar-left {
-      order: 1;
-      min-width: 100%;
-    }
-
-    .toolbar-center {
-      order: 2;
-      margin-right: auto;
-    }
-
-    .toolbar-right {
-      order: 3;
-      min-width: 0;
-      flex: 1 1 auto;
-      overflow-x: auto;
-      justify-content: flex-start;
-      padding-bottom: 1px;
-    }
-
     .doc-title {
       max-width: none;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .desktop-only {
+      display: none;
+    }
+
+    .mobile-only {
+      display: flex;
+    }
+
+    .toolbar {
+      gap: 0.35rem;
+    }
+
+    .toolbar-top {
+      flex-wrap: wrap;
+    }
+
+    .toolbar-primary {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    .toolbar-bottom {
+      display: block;
+    }
+
+    .mobile-controls {
+      display: flex;
     }
   }
 
@@ -438,20 +580,21 @@
       padding: 0.4rem 0.6rem;
     }
 
-    .toolbar-center {
-      width: 100%;
-      justify-content: center;
-      order: 3;
+    .toolbar-left {
+      min-width: 100%;
     }
 
-    .toolbar-right {
+    .toolbar-primary {
+      justify-content: stretch;
       width: 100%;
-      order: 2;
-      gap: 0.25rem;
     }
 
-    .view-btn .view-label {
-      display: none;
+    .toolbar-primary .btn {
+      flex: 1;
+    }
+
+    .mobile-controls {
+      gap: 0.35rem;
     }
 
     .btn {
@@ -466,6 +609,14 @@
 
     .quick-format {
       padding: 0.35rem 0.6rem;
+    }
+
+    .mobile-view {
+      flex: 1;
+    }
+
+    .mobile-view select {
+      width: 100%;
     }
 
     .btn-format {
