@@ -28,7 +28,7 @@
   import makefile from 'highlight.js/lib/languages/makefile';
   import mdLang from 'highlight.js/lib/languages/markdown';
   import plaintext from 'highlight.js/lib/languages/plaintext';
-  import { activeContent, tocJumpTarget, setTOCActiveHeading } from '$lib/stores/files';
+  import { activeContent, tocJumpRequest, setTOCActiveHeading } from '$lib/stores/files';
   import { hasMermaidFence, isMermaidLanguage } from '$lib/mermaid';
   import { createHeadingSlugger, preprocessPreviewMarkdown, stripHtmlTags } from '$lib/markdown';
 
@@ -314,7 +314,8 @@
   });
 
   $effect(() => {
-    const targetId = $tocJumpTarget;
+    const request = $tocJumpRequest;
+    const targetId = request?.id;
     if (!targetId || !container) return;
 
     setTimeout(() => {
@@ -322,16 +323,12 @@
       const heading = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6'))
         .find((el) => (el as HTMLElement).id === targetId) as HTMLElement | undefined;
 
-      if (!heading) {
-        tocJumpTarget.set(null);
-        return;
-      }
+      if (!heading) return;
 
       heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
       heading.classList.add('toc-focus');
       window.setTimeout(() => heading.classList.remove('toc-focus'), 900);
       setTOCActiveHeading(heading.id || null);
-      tocJumpTarget.set(null);
     }, 0);
   });
 

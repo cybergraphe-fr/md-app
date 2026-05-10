@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Marked } from 'marked';
 
-import { extractMarkdownHeadings, normalizeMarkdown, preprocessPreviewMarkdown } from './markdown';
+import { extractMarkdownHeadings, findHeadingLineInMarkdown, normalizeMarkdown, preprocessPreviewMarkdown } from './markdown';
 
 const marked = new Marked({
   gfm: true,
@@ -172,5 +172,23 @@ describe('Markdown normalization for preview', () => {
     expect(toc).toHaveLength(3);
     expect(toc.map((item) => item.id)).toEqual(['intro', 'intro-2', 'intro-3']);
     expect(toc.some((item) => item.text.includes('Not in toc'))).toBe(false);
+  });
+
+  it('resolves raw heading line for editor TOC jumps', () => {
+    const content = ['# Intro', '', '## Scope', 'Text', '### Details'].join('\n');
+    const toc = extractMarkdownHeadings(content);
+    const scope = toc.find((item) => item.text === 'Scope');
+
+    expect(scope).toBeDefined();
+    expect(findHeadingLineInMarkdown(content, scope!.id)).toBe(3);
+  });
+
+  it('resolves heading line for tight ATX headings', () => {
+    const content = ['##Scope', 'Body', '###Details'].join('\n');
+    const toc = extractMarkdownHeadings(content);
+    const detail = toc.find((item) => item.text === 'Details');
+
+    expect(detail).toBeDefined();
+    expect(findHeadingLineInMarkdown(content, detail!.id)).toBe(3);
   });
 });

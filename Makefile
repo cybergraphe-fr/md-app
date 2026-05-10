@@ -34,7 +34,7 @@ vuln:
 	govulncheck ./...
 
 check:
-	cd web && npm run check
+	cd web && npx svelte-check --tsconfig ./tsconfig.json
 
 clean:
 	rm -rf build/ web/dist/ coverage/

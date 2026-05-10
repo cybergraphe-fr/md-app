@@ -189,7 +189,11 @@ func newConnectedHandler(webRoot, remoteAPI string, webFS fs.FS) (http.Handler, 
 				http.Error(w, "frontend not found", http.StatusInternalServerError)
 				return
 			}
-			defer f.Close()
+			defer func() {
+				if closeErr := f.Close(); closeErr != nil {
+					slog.Warn("close embedded index file", "error", closeErr)
+				}
+			}()
 			stat, _ := f.Stat()
 			http.ServeContent(w, r, "index.html", stat.ModTime(), f.(readSeeker))
 		})
@@ -321,7 +325,9 @@ func resolveWebAssets(embeddedWeb fs.FS) (string, fs.FS, error) {
 		sub, err := fs.Sub(embeddedWeb, "dist")
 		if err == nil {
 			if f, err2 := sub.Open("index.html"); err2 == nil {
-				f.Close()
+				if closeErr := f.Close(); closeErr != nil {
+					slog.Warn("close embedded index probe", "error", closeErr)
+				}
 				slog.Info("using embedded web assets (portable mode)")
 				return "", sub, nil
 			}

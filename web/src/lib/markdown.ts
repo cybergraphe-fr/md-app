@@ -5,12 +5,16 @@ const reInlineHeading = /[ \t]+(#{1,6}[ \t]+)/g;
 const reTightAtxHeading = /^(\s{0,3}#{1,6})([^\s#])/;
 const reInlineTightAtxHeading = /([ \t])(#{2,6})([^\s#])/g;
 const reTableSep = /^[\s|:\-]+$/;
-const reAtxHeading = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/;
+const reAtxHeading = /^\s{0,3}(#{1,6})\s*(.+?)\s*#*\s*$/;
 
 export interface TocHeading {
   id: string;
   text: string;
   level: number;
+}
+
+interface TocHeadingWithLine extends TocHeading {
+  line: number;
 }
 
 function isListItem(line: string): boolean {
@@ -128,13 +132,15 @@ export function createHeadingSlugger(): (headingText: string) => string {
   };
 }
 
-export function extractMarkdownHeadings(content: string): TocHeading[] {
-  const headings: TocHeading[] = [];
+function collectMarkdownHeadings(content: string, normalized: boolean): TocHeadingWithLine[] {
+  const source = normalized ? normalizeMarkdown(content) : content;
+  const lines = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const headings: TocHeadingWithLine[] = [];
   const slugFor = createHeadingSlugger();
-  const lines = normalizeMarkdown(content).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let inFence = false;
 
-  for (const rawLine of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
     const trimmed = rawLine.trim();
     if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
       inFence = !inFence;
@@ -151,10 +157,36 @@ export function extractMarkdownHeadings(content: string): TocHeading[] {
       id: slugFor(text),
       text,
       level,
+      line: i + 1,
     });
   }
 
   return headings;
+}
+
+export function extractMarkdownHeadings(content: string): TocHeading[] {
+  return collectMarkdownHeadings(content, true).map(({ id, text, level }) => ({ id, text, level }));
+}
+
+export function findHeadingLineInMarkdown(content: string, headingId: string): number | null {
+  if (!headingId) return null;
+
+  const rawMatch = collectMarkdownHeadings(content, false).find((heading) => heading.id === headingId);
+  if (rawMatch) return rawMatch.line;
+
+  const normalizedMatch = collectMarkdownHeadings(content, true).find((heading) => heading.id === headingId);
+  if (!normalizedMatch) return null;
+
+  const targetText = normalizedMatch.text.toLowerCase();
+  const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!reAtxHeading.test(line)) continue;
+    if (line.toLowerCase().includes(targetText)) return i + 1;
+  }
+
+  return null;
 }
 
 export function normalizeMarkdown(content: string): string {

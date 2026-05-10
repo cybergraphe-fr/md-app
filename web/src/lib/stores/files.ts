@@ -17,8 +17,14 @@ export const theme = writable<'light' | 'dark'>('light');
 export const viewMode = writable<'split' | 'editor' | 'preview'>('split');
 export const previewFont = writable<string>('Lora');
 export const sidebarOpen = writable<boolean>(false);
-export const tocJumpTarget = writable<string | null>(null);
 export const tocActiveHeadingId = writable<string | null>(null);
+
+export interface TocJumpRequest {
+  id: string;
+  token: number;
+}
+
+export const tocJumpRequest = writable<TocJumpRequest | null>(null);
 
 export type FormatActionKind =
   | 'bold'
@@ -160,7 +166,7 @@ export async function openFile(id: string): Promise<void> {
     activeName.set(fwc.name);
     activeContent.set(fwc.content);
     tocActiveHeadingId.set(null);
-    tocJumpTarget.set(null);
+    tocJumpRequest.set(null);
     isDirty.set(false);
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to open file');
@@ -203,7 +209,7 @@ export async function createFile(name = 'untitled', content = ''): Promise<void>
     activeName.set(f.name);
     activeContent.set(content);
     tocActiveHeadingId.set(null);
-    tocJumpTarget.set(null);
+    tocJumpRequest.set(null);
     isDirty.set(false);
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to create file');
@@ -225,7 +231,7 @@ export async function deleteFile(id: string): Promise<void> {
       activeName.set('untitled');
       activeContent.set('');
       tocActiveHeadingId.set(null);
-      tocJumpTarget.set(null);
+      tocJumpRequest.set(null);
       isDirty.set(false);
     }
   } catch (e: unknown) {
@@ -245,7 +251,7 @@ export async function importFile(file: File): Promise<void> {
     activeName.set(fwc.name);
     activeContent.set(fwc.content);
     tocActiveHeadingId.set(null);
-    tocJumpTarget.set(null);
+    tocJumpRequest.set(null);
     isDirty.set(false);
   } catch (e: unknown) {
     error.set(e instanceof Error ? e.message : 'Failed to import file');
@@ -385,12 +391,12 @@ export function triggerFormatAction(kind: FormatActionKind): void {
   }));
 }
 
+let tocJumpToken = 0;
+
 export function jumpToHeading(id: string): void {
   if (!id) return;
-  if (get(viewMode) === 'editor') {
-    viewMode.set('split');
-  }
-  tocJumpTarget.set(id);
+  tocJumpToken += 1;
+  tocJumpRequest.set({ id, token: tocJumpToken });
 }
 
 export function setTOCActiveHeading(id: string | null): void {

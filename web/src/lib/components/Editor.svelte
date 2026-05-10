@@ -13,8 +13,11 @@
     setContent,
     theme,
     formatAction,
+    tocJumpRequest,
+    setTOCActiveHeading,
     type FormatActionKind,
   } from '$lib/stores/files';
+  import { findHeadingLineInMarkdown } from '$lib/markdown';
 
   let container: HTMLDivElement;
   let view: EditorView | undefined;
@@ -337,6 +340,29 @@
     applyFormat(action.kind);
   });
 
+  function jumpToHeadingInEditor(headingId: string): void {
+    if (!view || !headingId) return;
+    const content = view.state.doc.toString();
+    const lineNumber = findHeadingLineInMarkdown(content, headingId);
+    if (!lineNumber) return;
+
+    const safeLine = Math.min(Math.max(lineNumber, 1), view.state.doc.lines);
+    const line = view.state.doc.line(safeLine);
+    view.dispatch({
+      selection: { anchor: line.from, head: line.to },
+      effects: EditorView.scrollIntoView(line.from, { y: 'start', yMargin: 48 }),
+    });
+    setTOCActiveHeading(headingId);
+    view.focus();
+  }
+
+  let lastTOCJumpToken = 0;
+  const unsubTOCJump = tocJumpRequest.subscribe((request) => {
+    if (!request || request.token === lastTOCJumpToken) return;
+    lastTOCJumpToken = request.token;
+    jumpToHeadingInEditor(request.id);
+  });
+
   onMount(() => {
     const state = EditorState.create({
       doc: $activeContent,
@@ -350,6 +376,7 @@
     unsubTheme();
     unsubContent();
     unsubFormatAction();
+    unsubTOCJump();
     view?.destroy();
   });
 </script>
