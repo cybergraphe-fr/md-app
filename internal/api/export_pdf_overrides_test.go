@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -139,5 +141,29 @@ func TestPageOverridesCSS_IncludesMarginHeaderFooterAndEscaping(t *testing.T) {
 		if !strings.Contains(css, token) {
 			t.Fatalf("expected token %q in css override, got: %s", token, css)
 		}
+	}
+}
+
+func TestTangerineStylesheetsUseWoff2Assets(t *testing.T) {
+	webCSS, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "app.css"))
+	if err != nil {
+		t.Fatalf("read web css: %v", err)
+	}
+	pdfCSS, err := os.ReadFile(filepath.Join("..", "..", "pandoc", "print.css"))
+	if err != nil {
+		t.Fatalf("read print css: %v", err)
+	}
+
+	if !strings.Contains(string(webCSS), "Tangerine-Regular.woff2") {
+		t.Fatalf("web css does not reference Tangerine-Regular.woff2")
+	}
+	if !strings.Contains(string(pdfCSS), "Tangerine-Regular.woff2") {
+		t.Fatalf("print css does not reference Tangerine-Regular.woff2")
+	}
+	if strings.Contains(string(webCSS), "Tangerine-Regular.ttf") {
+		t.Fatalf("web css still references Tangerine-Regular.ttf")
+	}
+	if strings.Contains(string(pdfCSS), "Tangerine-Regular.ttf") {
+		t.Fatalf("print css still references Tangerine-Regular.ttf")
 	}
 }
