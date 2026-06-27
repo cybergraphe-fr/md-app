@@ -109,6 +109,18 @@ services:
       MD_DESKTOP_DOWNLOAD_PAGE_URL: "${MD_DESKTOP_DOWNLOAD_PAGE_URL:-/downloads/}"
       MD_DESKTOP_DOWNLOADS_DIR: "${MD_DESKTOP_DOWNLOADS_DIR:-/data/downloads}"
 
+      # ── Authentication posture ──
+      # md.cybergraphe.fr is an intentionally public, anonymous editor with
+      # cookie-based workspace isolation (no API key / OIDC, no Authelia at the
+      # Traefik edge — only CrowdSec). The API middleware fails closed unless
+      # auth is configured OR anonymous access is explicitly opted into here.
+      # Set an api_key secret (and remove this) to lock the instance down.
+      MD_ALLOW_ANONYMOUS: "${MD_ALLOW_ANONYMOUS:-true}"
+
+      # Export pipeline DoS guards (bounded fork-bomb surface).
+      MD_MAX_CONCURRENT_CONVERSIONS: "${MD_MAX_CONCURRENT_CONVERSIONS:-3}"
+      MD_MAX_MERMAID_BLOCKS: "${MD_MAX_MERMAID_BLOCKS:-50}"
+
       # ── Upload limit ──
       MD_MAX_FILE_SIZE_MB: "${MD_MAX_FILE_SIZE_MB:-20}"
 

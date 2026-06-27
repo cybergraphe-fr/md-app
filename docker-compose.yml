@@ -47,6 +47,9 @@ services:
       # Set an API key to require X-API-Key header on all requests.
       # Leave empty = public access (fine for local dev).
       MD_API_KEY: "${MD_API_KEY:-}"
+      # The API fails closed when no auth is configured; opt into anonymous
+      # access explicitly for local dev (set MD_ALLOW_ANONYMOUS=false to lock).
+      MD_ALLOW_ANONYMOUS: "${MD_ALLOW_ANONYMOUS:-true}"
 
       # ── URLs ──
       MD_APP_URL: "${MD_APP_URL:-http://localhost:8080}"
