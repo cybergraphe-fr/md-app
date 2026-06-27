@@ -76,3 +76,4 @@ CLAUDE.md
 # exported PDFs (generated, not source)
 *.pdf
 secrets/codesign/
+__pycache__/

@@ -70,6 +70,22 @@ services:
     cap_drop:
       - ALL
 
+    # Immutable root filesystem. The export pipeline (pandoc / WeasyPrint /
+    # headless Chromium) and Go's os.MkdirTemp only ever write under /tmp and
+    # $HOME, both backed by tmpfs below. Persistent data lives on the ./data
+    # bind-mount (writable). Docker secrets are mounted separately at
+    # /run/secrets and remain available.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,mode=1777,size=512m
+
+    # Resource ceilings — bound the cost of concurrent export pipelines
+    # (each PDF export forks pandoc + WeasyPrint + one Chromium per Mermaid
+    # block; concurrency is also capped in-app via MD_EXPORT_CONCURRENCY).
+    mem_limit: 1536m
+    cpus: 2.0
+    pids_limit: 512
+
     # Inject secret files into the container at /run/secrets/
     secrets:
       - redis_password
@@ -98,6 +114,10 @@ services:
 
       # ── Timezone ──
       TZ: "${TZ:-UTC}"
+
+      # Under read_only rootfs, redirect any $HOME writes (Chromium profile,
+      # fontconfig user cache) onto the /tmp tmpfs defined above.
+      HOME: /tmp
 
       # ── Redis connection (non-secret parts only) ──
       # The password is NOT here — it's read from /run/secrets/redis_password

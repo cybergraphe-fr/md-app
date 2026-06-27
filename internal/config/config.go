@@ -30,6 +30,15 @@ type Config struct {
 	APIKey    string // optional API key; empty = no auth
 	CORSRoots []string
 
+	// AllowAnonymous explicitly opts in to serving the conversion / file
+	// CRUD API without any authentication. When false (default) and neither
+	// an API key nor OIDC is configured, those endpoints fail closed.
+	AllowAnonymous bool
+
+	// Resource-exhaustion guards for the conversion pipeline (DoS hardening).
+	MaxConcurrentConversions int // simultaneous pandoc/weasyprint conversions
+	MaxMermaidBlocks         int // mermaid diagrams rendered per document
+
 	// Pandoc binary path (for multi-format export)
 	PandocBinary string
 
@@ -109,10 +118,23 @@ func Load() (*Config, error) {
 		},
 		DesktopDownloadsDir: getEnv("MD_DESKTOP_DOWNLOADS_DIR", filepath.Join(storagePath, "downloads")),
 		PandocBinary:        getEnv("MD_PANDOC_BINARY", "pandoc"),
-		WeasyprintBinary:    getEnv("MD_WEASYPRINT_BINARY", "weasyprint"),
-		ChromiumBinary:      getEnv("MD_CHROMIUM_BINARY", "chromium-browser"),
-		AppURL:              getEnv("MD_APP_URL", "http://localhost:8080"),
-		MaxFileSizeMB:       getEnvInt64("MD_MAX_FILE_SIZE_MB", 10),
+		// Default to the SSRF/LFI-hardened WeasyPrint wrapper shipped in the
+		// image (pandoc/weasyprint_safe.py → /app/pandoc/...). Override with
+		// MD_WEASYPRINT_BINARY=weasyprint to bypass (not recommended).
+		WeasyprintBinary:         getEnv("MD_WEASYPRINT_BINARY", "/app/pandoc/weasyprint_safe.py"),
+		ChromiumBinary:           getEnv("MD_CHROMIUM_BINARY", "chromium-browser"),
+		AppURL:                   getEnv("MD_APP_URL", "http://localhost:8080"),
+		MaxFileSizeMB:            getEnvInt64("MD_MAX_FILE_SIZE_MB", 10),
+		AllowAnonymous:           getEnvBool("MD_ALLOW_ANONYMOUS", false),
+		MaxConcurrentConversions: int(getEnvInt64("MD_MAX_CONCURRENT_CONVERSIONS", 4)),
+		MaxMermaidBlocks:         int(getEnvInt64("MD_MAX_MERMAID_BLOCKS", 50)),
+	}
+
+	if cfg.MaxConcurrentConversions < 1 {
+		cfg.MaxConcurrentConversions = 1
+	}
+	if cfg.MaxMermaidBlocks < 1 {
+		cfg.MaxMermaidBlocks = 1
 	}
 
 	// CORS allowed origins
@@ -164,6 +186,18 @@ func getEnvInt64(key string, fallback int64) int64 {
 			return fallback
 		}
 		return n
+	}
+	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	if v := os.Getenv(key); v != "" {
+		b, err := strconv.ParseBool(strings.TrimSpace(v))
+		if err != nil {
+			slog.Warn("invalid boolean env var, using default", "key", key, "value", v, "fallback", fallback)
+			return fallback
+		}
+		return b
 	}
 	return fallback
 }

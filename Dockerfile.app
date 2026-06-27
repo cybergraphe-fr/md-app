@@ -181,8 +181,10 @@ WORKDIR /app
 # Copy artifacts from build stages
 COPY --from=go-build /app/md ./md
 COPY --from=web-build /src/web/dist ./web
-# Pandoc templates + print.css for PDF/DOCX export
+# Pandoc templates + print.css + SSRF-hardened WeasyPrint wrapper for export
 COPY pandoc/ ./pandoc/
+# Ensure the hardened WeasyPrint wrapper is executable (default export binary).
+RUN chmod 0755 /app/pandoc/weasyprint_safe.py
 # Mermaid SSR renderer (Node.js) for PDF diagram rendering
 COPY --from=mermaid-build /mmdc ./mmdc
 

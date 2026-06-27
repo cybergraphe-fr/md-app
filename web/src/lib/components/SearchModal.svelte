@@ -57,10 +57,23 @@
     }
   }
 
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Returns HTML inserted via {@html}: the snippet is HTML-escaped first so
+  // server-stored content cannot inject markup (stored XSS); only the trusted
+  // <mark> wrapper around the matched query is added afterwards.
   function highlightMatch(text: string, q: string): string {
-    if (!q) return text;
-    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
+    const safe = escapeHtml(text);
+    if (!q) return safe;
+    const escaped = escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return safe.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
   }
 </script>
 

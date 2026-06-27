@@ -25,11 +25,41 @@ import (
 type exportHandler struct {
 	basePath string
 	cfg      *config.Config
+	// sem caps simultaneous export pipelines (DoS hardening). Each export
+	// forks pandoc + WeasyPrint and, for PDF, one headless Chromium per
+	// Mermaid block; an unbounded fan-out would exhaust CPU/RAM/PIDs. Sized
+	// from MD_MAX_CONCURRENT_CONVERSIONS (default 4).
+	sem chan struct{}
 }
 
 func newExportHandler(basePath string, cfg *config.Config) *exportHandler {
-	return &exportHandler{basePath: basePath, cfg: cfg}
+	return &exportHandler{basePath: basePath, cfg: cfg, sem: make(chan struct{}, exportEnvInt("MD_MAX_CONCURRENT_CONVERSIONS", 4))}
 }
+
+// exportEnvInt reads a positive integer tunable from the environment, falling
+// back to def. Backs the DoS-hardening knobs (export concurrency, Mermaid cap)
+// so they are self-contained and do not depend on optional config fields.
+func exportEnvInt(key string, def int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return def
+}
+
+// acquire takes a conversion slot without blocking; it returns false (so the
+// caller can reply 503) when the pipeline is already at capacity.
+func (h *exportHandler) acquire() bool {
+	select {
+	case h.sem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *exportHandler) release() { <-h.sem }
 
 func (h *exportHandler) store(r *http.Request) *storage.Storage {
 	return ScopedStorage(h.basePath, r)
@@ -130,8 +160,17 @@ func renderMermaid(ctx context.Context, source, format string) (string, error) {
 // For PDF reliability, we embed rendered PNG data URIs (no JS, no SVG
 // foreignObject support dependency in WeasyPrint).
 // Falls back to a plain code block if SSR fails.
-func preprocessMermaidForExport(ctx context.Context, content string) string {
+func preprocessMermaidForExport(ctx context.Context, content string, maxBlocks int) string {
+	if maxBlocks < 1 {
+		maxBlocks = 1
+	}
+	blocks := 0
 	return processMermaidFences(content, func(source string) string {
+		blocks++
+		if blocks > maxBlocks {
+			slog.Warn("mermaid block cap reached, keeping as code block", "cap", maxBlocks)
+			return "```\n" + source + "\n```"
+		}
 		pngB64, err := renderMermaid(ctx, source, "png")
 		if err != nil {
 			slog.Warn("mermaid SSR render failed, keeping as code block", "error", err)
@@ -550,6 +589,12 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.acquire() {
+		writeError(w, http.StatusServiceUnavailable, "export service is at capacity, please retry shortly")
+		return
+	}
+	defer h.release()
+
 	// Write input to a temp file (pandoc reads from stdin or file)
 	tmpDir, err := os.MkdirTemp("", "md-export-*")
 	if err != nil {
@@ -569,7 +614,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 	// Preprocess page breaks for PDF export
 	content := preprocessMarkdown(fwc.Content)
 	if format == "pdf" {
-		content = preprocessMermaidForExport(r.Context(), content)
+		content = preprocessMermaidForExport(r.Context(), content, exportEnvInt("MD_MAX_MERMAID_BLOCKS", 50))
 		content = preprocessPageBreaks(content)
 	}
 
@@ -589,13 +634,13 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		htmlFile := filepath.Join(tmpDir, "output.html")
 		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins, decor); err != nil {
 			slog.Error("pdf export failed", "file", fwc.Name, "error", err)
-			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "export conversion failed")
 			return
 		}
 	} else {
 		if err := h.runPandocExport(ctx, inputFile, outputFile, fmtInfo.to, decor); err != nil {
 			slog.Error("pandoc export failed", "format", format, "file", fwc.Name, "error", err)
-			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "export conversion failed")
 			return
 		}
 	}
@@ -633,6 +678,11 @@ func streamFile(w http.ResponseWriter, path, contentType, filename string) error
 func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFile, toFmt string, decor pdfPageDecor) error {
 	mainfont, sansfont, monofont := pandocFontVars(decor)
 	args := []string{
+		// --sandbox blocks pandoc's reader/media IO so malicious markdown
+		// (e.g. <img src="file:///run/secrets/...">) cannot make pandoc read
+		// local files or fetch remote URLs while embedding media into
+		// docx/odt/epub output (LFI + SSRF). Verified blocked on pandoc 3.x.
+		"--sandbox",
 		"-f", pandocInputFmt,
 		"-t", toFmt,
 		"--standalone",
@@ -688,11 +738,21 @@ func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFi
 // exclusively from the document's own content (YAML frontmatter or headings).
 func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, outputFile string, margins pdfMargins, decor pdfPageDecor) error {
 	// Step 1: Pandoc → self-contained HTML
+	// NOTE: --embed-resources is intentionally omitted. With it, *pandoc*
+	// becomes the SSRF egress point (it fetches & inlines remote resources at
+	// this stage, bypassing the WeasyPrint url_fetcher guard). Local resources
+	// (print.css, bundled fonts via file:// URLs) are loaded by WeasyPrint
+	// instead, where _make_fetcher in weasyprint_safe.py enforces the
+	// allow-list. See SECURITY.md (2026-06-27).
 	pandocArgs := []string{
+		// Defense-in-depth: --sandbox blocks any pandoc-side file/URL reads in
+		// this stage. print.css is referenced as a <link> (not embedded here)
+		// and resolved later by the hardened WeasyPrint fetcher, so the sandbox
+		// does not affect styling.
+		"--sandbox",
 		"-f", pandocInputFmt,
 		"-t", "html5",
 		"--standalone",
-		"--embed-resources",
 		"--mathml",
 		"--highlight-style", "zenburn",
 		"--css", "/app/pandoc/print.css",
@@ -764,6 +824,12 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		body.Name = "document"
 	}
 
+	if !h.acquire() {
+		writeError(w, http.StatusServiceUnavailable, "export service is at capacity, please retry shortly")
+		return
+	}
+	defer h.release()
+
 	tmpDir, err := os.MkdirTemp("", "md-export-raw-*")
 	if err != nil {
 		slog.Error("create tmpdir", "error", err)
@@ -781,7 +847,7 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 
 	rawContent := preprocessMarkdown(body.Content)
 	if format == "pdf" {
-		rawContent = preprocessMermaidForExport(r.Context(), rawContent)
+		rawContent = preprocessMermaidForExport(r.Context(), rawContent, exportEnvInt("MD_MAX_MERMAID_BLOCKS", 50))
 		rawContent = preprocessPageBreaks(rawContent)
 	}
 
@@ -799,14 +865,14 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		htmlFile := filepath.Join(tmpDir, "output.html")
 		if err := h.runPDFExport(ctx, inputFile, htmlFile, outputFile, margins, decor); err != nil {
 			slog.Error("pdf export raw failed", "error", err)
-			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "export conversion failed")
 			return
 		}
 	} else {
 		decor := parsePageDecor(r)
 		if err := h.runPandocExport(ctx, inputFile, outputFile, fmtInfo.to, decor); err != nil {
 			slog.Error("pandoc export raw failed", "format", format, "error", err)
-			writeError(w, http.StatusInternalServerError, "export conversion failed: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "export conversion failed")
 			return
 		}
 	}

@@ -27,11 +27,24 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 // apiKeyMiddleware enforces an optional API key (X-API-Key header or ?api_key query param).
-func apiKeyMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+//
+// When no API key is configured it fails CLOSED unless another auth layer is
+// active (OIDC) or anonymous access has been explicitly opted into via
+// MD_ALLOW_ANONYMOUS=true. This prevents silently serving the conversion and
+// file CRUD API to the public when the operator forgot to set credentials.
+func apiKeyMiddleware(cfg *config.Config, oidcEnabled bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if cfg.APIKey == "" {
-				next.ServeHTTP(w, r)
+				// OIDC already enforces auth for these routes; or the operator
+				// explicitly enabled anonymous access.
+				if oidcEnabled || cfg.AllowAnonymous {
+					next.ServeHTTP(w, r)
+					return
+				}
+				slog.Error("refusing request: no authentication configured — set MD_API_KEY, enable OIDC, or set MD_ALLOW_ANONYMOUS=true to serve publicly",
+					"path", r.URL.Path)
+				writeError(w, http.StatusServiceUnavailable, "service unavailable: authentication is not configured")
 				return
 			}
 			key := r.Header.Get("X-API-Key")
@@ -58,13 +71,23 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		// NOTE: 'unsafe-eval' is required by the bundled client-side renderers
+		// (mermaid + katex use the Function constructor); removing it breaks
+		// the in-app preview. Stored-XSS is instead neutralized server-side by
+		// the bluemonday sanitizer in renderMarkdown (see files.go). The extra
+		// directives below (object-src/base-uri/frame-ancestors/form-action)
+		// are pure hardening with no functional impact.
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
 				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "+
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "+
 				"img-src 'self' data: blob: https:; "+
 				"font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; "+
-				"connect-src 'self' wss: ws:;")
+				"connect-src 'self' wss: ws:; "+
+				"object-src 'none'; "+
+				"base-uri 'self'; "+
+				"frame-ancestors 'self'; "+
+				"form-action 'self';")
 		next.ServeHTTP(w, r)
 	})
 }

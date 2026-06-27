@@ -55,10 +55,10 @@ func NewWorkspaceRegistry(basePath string) *WorkspaceRegistry {
 }
 
 var (
-	codeRe = regexp.MustCompile(`^[a-z0-9]{8}$`)
-	uuidWs = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-	errInvalidSyncCode = errors.New("invalid sync code")
-	errUnknownSyncCode = errors.New("unknown sync code")
+	codeRe               = regexp.MustCompile(`^[a-z0-9]{8}$`)
+	uuidWs               = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	errInvalidSyncCode   = errors.New("invalid sync code")
+	errUnknownSyncCode   = errors.New("unknown sync code")
 	errWorkspaceNotFound = errors.New("workspace not found")
 )
 

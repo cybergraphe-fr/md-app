@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	emoji "github.com/yuin/goldmark-emoji"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
@@ -47,14 +48,43 @@ var md = goldmark.New(
 	),
 )
 
-const renderCacheVersion = "v2"
+// renderCacheVersion is bumped whenever the rendering/sanitization pipeline
+// changes so stale cached HTML is not served. v3 = bluemonday sanitization.
+const renderCacheVersion = "v3"
 
 // bufPool reuses bytes.Buffer for markdown rendering.
 var bufPool = sync.Pool{
 	New: func() any { return new(bytes.Buffer) },
 }
 
-// renderMarkdown converts markdown content to an HTML string.
+// htmlSanitizer strips XSS vectors (scripts, event handlers, javascript:
+// URLs, dangerous tags) from the goldmark output, which is rendered with
+// html.WithUnsafe() and therefore passes raw HTML from user markdown through
+// verbatim. The policy is derived from UGCPolicy and extended to keep the
+// presentational markup our own renderer emits: syntax-highlight classes/
+// styles, heading anchor ids, GFM task-list checkboxes, and the
+// data-mermaid hook the frontend uses to locate diagram blocks.
+var htmlSanitizer = buildHTMLSanitizer()
+
+func buildHTMLSanitizer() *bluemonday.Policy {
+	p := bluemonday.UGCPolicy()
+	// Syntax highlighting (chroma) + Mermaid blocks rely on class/style/id.
+	p.AllowAttrs("class").Globally()
+	p.AllowAttrs("id").Globally()
+	p.AllowAttrs("style").OnElements("span", "code", "pre", "div", "td", "th", "table", "col")
+	p.AllowStyles(
+		"color", "background-color", "font-weight", "font-style",
+		"text-decoration", "text-align",
+	).Globally()
+	// Mermaid hook used by the frontend to locate diagram source blocks.
+	p.AllowAttrs("data-mermaid").OnElements("pre")
+	// GFM task-list checkboxes (disabled, non-interactive).
+	p.AllowAttrs("type").Matching(bluemonday.SpaceSeparatedTokens).OnElements("input")
+	p.AllowAttrs("checked", "disabled").OnElements("input")
+	return p
+}
+
+// renderMarkdown converts markdown content to a sanitized HTML string.
 func renderMarkdown(content string) (string, error) {
 	content = preprocessMarkdown(content)
 	content = replaceMermaidFences(content)
@@ -64,7 +94,9 @@ func renderMarkdown(content string) (string, error) {
 	if err := md.Convert([]byte(content), buf); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
+	// Defense-in-depth: neutralize any raw HTML XSS that survived goldmark's
+	// html.WithUnsafe() before the HTML is stored, cached, exported, or shown.
+	return htmlSanitizer.Sanitize(buf.String()), nil
 }
 
 // processMermaidFences parses mermaid code fences and calls handler for each

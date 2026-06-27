@@ -87,7 +87,7 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 
 	// API routes (protected by optional API key)
 	r.Group(func(r chi.Router) {
-		r.Use(apiKeyMiddleware(cfg))
+		r.Use(apiKeyMiddleware(cfg, oidcCfg != nil))
 
 		fh := newFilesHandler(cfg.StoragePath, c)
 		eh := newExportHandler(cfg.StoragePath, cfg)
