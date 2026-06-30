@@ -33,6 +33,7 @@ It is distributed under the **MIT licence** and designed to run on your own infr
 | **Themes** | Light / Dark, auto-detects system preference, persists in localStorage |
 | **View modes** | Split (editor + preview), Editor only, Preview only |
 | **Preview width** | Adjustable preview text-column width from the toolbar: presets (A4 ≈ 780px, Large, Très large) + a fine slider (640–2000px) + full-width mode for web reading / landscape formats. Defaults to A4; persisted in localStorage. Print/PDF export is unaffected (always full page) |
+| **Resizable table columns** | Drag the column borders in the preview to resize table columns (steal-from-neighbour model: total table width stays 100%, no horizontal scroll). Double-click a border to reset a table to automatic layout. Pointer + touch supported. Widths are remembered per table for the session so they survive live re-rendering while editing |
 | **Sidebar** | Collapsible file manager panel with dual navigation modes: file list + auto-generated document table of contents (H1-H6) with click-to-jump and active-section highlighting |
 | **Workspace sync** | Device-to-device workspace linking via 8-character sync code from the Synchroniser modal; includes retry UI and backend self-healing if a workspace code mapping is missing |
 | **Desktop download CTA** | Toolbar + Synchroniser modal expose OS-aware desktop download links returned by `/api/desktop/downloads`, with fallback links for other platforms |

@@ -28,9 +28,10 @@
   import makefile from 'highlight.js/lib/languages/makefile';
   import mdLang from 'highlight.js/lib/languages/markdown';
   import plaintext from 'highlight.js/lib/languages/plaintext';
-  import { activeContent, tocJumpRequest, setTOCActiveHeading } from '$lib/stores/files';
+  import { activeContent, activeFileId, tocJumpRequest, setTOCActiveHeading } from '$lib/stores/files';
   import { hasMermaidFence, isMermaidLanguage } from '$lib/mermaid';
   import { createHeadingSlugger, preprocessPreviewMarkdown, stripHtmlTags } from '$lib/markdown';
+  import { resizeColumns } from '$lib/table-resize';
 
   // Register languages for tree-shaken hljs
   hljs.registerLanguage('javascript', javascript);
@@ -206,6 +207,101 @@
     setTOCActiveHeading(current.id || null);
   }
 
+  // ── Redimensionnement manuel des colonnes de tableaux (drag) ──
+  // L'aperçu est re-rendu à chaque frappe : on mémorise les largeurs par
+  // (fichier, index de tableau) pour les réappliquer après chaque rendu.
+  const tableColumnWidths = new Map<string, number[]>();
+  const MIN_COL_PX = 48;
+
+  function setupResizableTables(root: HTMLElement, fileId: string): void {
+    const tables = root.querySelectorAll<HTMLTableElement>('.table-scroll > table');
+    tables.forEach((table, tableIndex) => {
+      const headerRow = (table.tHead?.rows[0] ?? table.rows[0]) as HTMLTableRowElement | undefined;
+      if (!headerRow || headerRow.cells.length < 2) return;
+      const cells = Array.from(headerRow.cells) as HTMLElement[];
+      const key = `${fileId}::${tableIndex}`;
+
+      // Réapplique les largeurs mémorisées (survit au re-render pendant l'édition)
+      const stored = tableColumnWidths.get(key);
+      if (stored && stored.length === cells.length) {
+        table.style.tableLayout = 'fixed';
+        cells.forEach((th, i) => { th.style.width = `${stored[i]}px`; });
+      }
+
+      if (table.dataset.resizable === '1') return;
+      table.dataset.resizable = '1';
+
+      const persist = () => {
+        const widths = Array.from(headerRow.cells).map(
+          (c) => Math.round((c as HTMLElement).getBoundingClientRect().width)
+        );
+        tableColumnWidths.set(key, widths);
+      };
+
+      // Une poignée sur le bord droit de chaque colonne sauf la dernière :
+      // glisser redistribue la largeur entre la colonne et sa voisine de droite
+      // (la largeur totale du tableau — 100 % — reste constante, pas de scroll surprise).
+      cells.forEach((th, colIndex) => {
+        if (colIndex === cells.length - 1) return;
+        th.style.position = 'relative';
+        const handle = document.createElement('span');
+        handle.className = 'col-resizer';
+        handle.setAttribute('role', 'separator');
+        handle.setAttribute('aria-orientation', 'vertical');
+        handle.title = 'Glisser pour redimensionner · double-clic pour réinitialiser';
+
+        let startX = 0;
+        let startW = 0;
+        let startNextW = 0;
+        let next: HTMLElement | null = null;
+
+        const onMove = (ev: PointerEvent) => {
+          if (!next) return;
+          const { width, nextWidth } = resizeColumns(startW, startNextW, ev.clientX - startX, MIN_COL_PX);
+          th.style.width = `${width}px`;
+          next.style.width = `${nextWidth}px`;
+        };
+        const onUp = (ev: PointerEvent) => {
+          try { handle.releasePointerCapture(ev.pointerId); } catch { /* noop */ }
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          handle.classList.remove('dragging');
+          document.body.classList.remove('col-resizing');
+          persist();
+        };
+
+        handle.addEventListener('pointerdown', (ev: PointerEvent) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const liveCells = Array.from(headerRow.cells) as HTMLElement[];
+          next = liveCells[colIndex + 1] ?? null;
+          if (!next) return;
+          // Fige les largeurs courantes de toutes les colonnes → redistribution stable
+          table.style.tableLayout = 'fixed';
+          liveCells.forEach((c) => { c.style.width = `${c.getBoundingClientRect().width}px`; });
+          startX = ev.clientX;
+          startW = th.getBoundingClientRect().width;
+          startNextW = next.getBoundingClientRect().width;
+          try { handle.setPointerCapture(ev.pointerId); } catch { /* noop */ }
+          handle.classList.add('dragging');
+          document.body.classList.add('col-resizing');
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+        });
+        handle.addEventListener('click', (e) => e.stopPropagation());
+        handle.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          // Réinitialise la mise en page automatique du tableau
+          table.style.tableLayout = '';
+          Array.from(headerRow.cells).forEach((c) => { (c as HTMLElement).style.width = ''; });
+          tableColumnWidths.delete(key);
+        });
+
+        th.appendChild(handle);
+      });
+    });
+  }
+
   // Re‑render on content change
   $effect(() => {
     const content = $activeContent;
@@ -232,6 +328,7 @@
     // Dereference reactive state synchronously so Svelte 5 tracks them
     const _mReady = mermaidReady;
     const _mModule = mermaidModule;
+    const _fileId = $activeFileId ?? 'untitled';
     setTimeout(async () => {
       // Copy buttons on code blocks
       container?.querySelectorAll('pre:not([data-copy]):not([data-mermaid])').forEach((pre) => {
@@ -308,6 +405,9 @@
           }
         }
       }
+
+      // Colonnes de tableaux redimensionnables (poignées + largeurs mémorisées)
+      if (container) setupResizableTables(container, _fileId);
 
       refreshActiveHeading();
     }, 0);
@@ -463,6 +563,39 @@
       background: transparent;
       box-shadow: 0 0 0 1px transparent;
     }
+  }
+
+  /* Colonnes de tableaux redimensionnables (poignée injectée dans les <th>) */
+  :global(.preview-content .col-resizer) {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 9px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 3;
+  }
+  :global(.preview-content .col-resizer::after) {
+    content: '';
+    position: absolute;
+    top: 18%;
+    bottom: 18%;
+    left: 3px;
+    width: 2px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background 0.12s ease;
+  }
+  :global(.preview-content th:hover .col-resizer::after),
+  :global(.preview-content .col-resizer.dragging::after) {
+    background: var(--accent);
+  }
+  :global(body.col-resizing),
+  :global(body.col-resizing *) {
+    cursor: col-resize !important;
+    user-select: none !important;
   }
 
   /* Print */
