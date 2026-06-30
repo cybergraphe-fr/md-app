@@ -129,6 +129,63 @@ export function setLayoutConfig<K extends keyof LayoutConfig>(key: K, value: Lay
   });
 }
 
+// ---- Preview width (largeur de la colonne de texte dans l'aperçu) ----
+// 'full' = pleine largeur du volet ; sinon largeur max en pixels (consultation
+// web / formats paysage). Appliqué via la variable CSS --preview-max-width.
+export type PreviewWidth = number | 'full';
+
+export const PREVIEW_WIDTH_MIN = 640;
+export const PREVIEW_WIDTH_MAX = 2000;
+const defaultPreviewWidth: PreviewWidth = 780; // ≈ A4 portrait (valeur historique)
+
+export const previewWidthPresets: ReadonlyArray<{ label: string; value: PreviewWidth }> = [
+  { label: 'A4', value: 780 },
+  { label: 'Large', value: 1024 },
+  { label: 'Très large', value: 1280 },
+  { label: 'Pleine largeur', value: 'full' },
+];
+
+export const previewWidth = writable<PreviewWidth>(defaultPreviewWidth);
+
+export function normalizePreviewWidth(raw: unknown): PreviewWidth {
+  if (raw === 'full') return 'full';
+  // N'accepte qu'un nombre ou une chaîne numérique ; tout le reste (null,
+  // booléen, objet, chaîne vide…) retombe sur le défaut — évite le piège
+  // Number(null) === 0 qui serait borné à PREVIEW_WIDTH_MIN.
+  let n: number;
+  if (typeof raw === 'number') n = raw;
+  else if (typeof raw === 'string' && raw.trim() !== '') n = Number(raw);
+  else return defaultPreviewWidth;
+  if (!Number.isFinite(n)) return defaultPreviewWidth;
+  return Math.min(PREVIEW_WIDTH_MAX, Math.max(PREVIEW_WIDTH_MIN, Math.round(n)));
+}
+
+function applyPreviewWidth(value: PreviewWidth): void {
+  const css = value === 'full' ? 'none' : `${value}px`;
+  document.documentElement.style.setProperty('--preview-max-width', css);
+}
+
+export function setPreviewWidth(value: PreviewWidth): void {
+  const next = normalizePreviewWidth(value);
+  previewWidth.set(next);
+  localStorage.setItem('md-preview-width', JSON.stringify(next));
+  applyPreviewWidth(next);
+}
+
+function initPreviewWidth(): void {
+  const saved = localStorage.getItem('md-preview-width');
+  let value: PreviewWidth = defaultPreviewWidth;
+  if (saved) {
+    try {
+      value = normalizePreviewWidth(JSON.parse(saved));
+    } catch {
+      value = defaultPreviewWidth;
+    }
+  }
+  previewWidth.set(value);
+  applyPreviewWidth(value);
+}
+
 // ---- Derived ----
 
 export const filteredFiles = derived(
@@ -378,6 +435,9 @@ export function initTheme(): void {
     layoutConfig.set({ ...defaultLayoutConfig });
     applyLayoutConfig(defaultLayoutConfig);
   }
+
+  // Restore preview width preference (default: ≈ A4)
+  initPreviewWidth();
 
   // Restore sidebar preference (default: collapsed)
   const savedSidebar = localStorage.getItem('md-sidebar');

@@ -381,7 +381,9 @@
 
   .preview-content {
     padding: 2.5rem 3rem;
-    max-width: 780px;
+    /* Largeur pilotée par la préférence utilisateur (Toolbar → largeur d'aperçu).
+       Repli sur 780px (≈ A4 portrait) si la variable n'est pas définie. */
+    max-width: var(--preview-max-width, 780px);
     margin: 0 auto;
     min-height: 100%;
   }

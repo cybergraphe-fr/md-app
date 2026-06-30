@@ -15,6 +15,7 @@
     type FormatActionKind,
   } from '$lib/stores/files';
   import FontPicker from './FontPicker.svelte';
+  import PreviewWidth from './PreviewWidth.svelte';
   import {
     Save,
     FilePlus,
@@ -222,6 +223,8 @@
       <div class="divider-v"></div>
 
       <FontPicker />
+
+      <PreviewWidth />
 
       <button class="btn btn-icon" title="Toggle theme" onclick={toggleTheme}>
         {#if $theme === 'dark'}
