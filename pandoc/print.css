@@ -291,7 +291,13 @@ pre {
   padding: 0.85em 1em;
   border-radius: 4pt;
   border: 0.5pt solid #313244;
-  break-inside: avoid;
+  /* Large code blocks are allowed to span pages: forcing break-inside:avoid
+     on a block taller than a page makes it jump to a fresh page, orphaning
+     the heading that precedes it (break-after:avoid). orphans/widows keep at
+     least two lines together on each side of a split. */
+  break-inside: auto;
+  orphans: 2;
+  widows: 2;
   margin: 1em 0;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -308,7 +314,7 @@ pre code {
 
 /* Pandoc sourceCode wrapper */
 div.sourceCode {
-  break-inside: avoid;
+  break-inside: auto;
   margin: 1em 0;
 }
 div.sourceCode pre {
@@ -328,6 +334,10 @@ blockquote {
   color: #1e40af;
   border-radius: 0 4pt 4pt 0;
   font-style: italic;
+  /* Long quotes may span pages rather than jumping to a fresh one. */
+  break-inside: auto;
+  orphans: 2;
+  widows: 2;
 }
 
 blockquote p {
@@ -555,8 +565,10 @@ li {
   break-inside: avoid;
 }
 
-/* Keep figures and code/quotes together; tables may split on long content */
-figure, pre, blockquote {
+/* Figures stay atomic; long code blocks and quotes may split across pages
+   (see the pre/blockquote rules above) so a tall block never orphans the
+   heading that precedes it. */
+figure {
   break-inside: avoid;
 }
 
