@@ -144,6 +144,33 @@ func TestPageOverridesCSS_IncludesMarginHeaderFooterAndEscaping(t *testing.T) {
 	}
 }
 
+func TestPageOverridesCSS_LandscapeAloneEmitsPageSize(t *testing.T) {
+	css := pageOverridesCSS(marginPresets["standard"], pdfPageDecor{Orientation: "landscape"})
+	if !strings.Contains(css, "@page { size: A4 landscape;") {
+		t.Fatalf("expected landscape @page size in css, got: %s", css)
+	}
+	// Standard margins must NOT be re-emitted (they stay inherited from print.css).
+	if strings.Contains(css, "margin:") {
+		t.Fatalf("did not expect margin override for standard margins, got: %s", css)
+	}
+}
+
+func TestSanitizeOrientation(t *testing.T) {
+	cases := map[string]string{
+		"landscape":   "landscape",
+		"LANDSCAPE":   "landscape",
+		" landscape ": "landscape",
+		"portrait":    "portrait",
+		"":            "portrait",
+		"garbage":     "portrait",
+	}
+	for in, want := range cases {
+		if got := sanitizeOrientation(in); got != want {
+			t.Fatalf("sanitizeOrientation(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestTangerineStylesheetsUseWoff2Assets(t *testing.T) {
 	webCSS, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "app.css"))
 	if err != nil {

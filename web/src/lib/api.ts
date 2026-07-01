@@ -85,6 +85,7 @@ export interface DesktopDownloadsInfo {
 
 export interface PDFExportOptions {
   margin?: string;
+  orientation?: 'portrait' | 'landscape';
   header?: string;
   footer?: string;
   headerAlign?: 'left' | 'center' | 'right';
@@ -110,6 +111,7 @@ function buildExportQuery(format: string, options?: string | PDFExportOptions): 
 
   const params = new URLSearchParams();
   const margin = normalized.margin?.trim();
+  const orientation = normalized.orientation?.trim();
   const header = normalized.header?.trim();
   const footer = normalized.footer?.trim();
   const headerAlign = normalized.headerAlign?.trim();
@@ -124,6 +126,7 @@ function buildExportQuery(format: string, options?: string | PDFExportOptions): 
 
   if (format === 'pdf') {
     if (margin) params.set('margin', margin);
+    if (orientation === 'landscape') params.set('orientation', orientation);
     if (header) params.set('header', header.slice(0, 120));
     if (footer) params.set('footer', footer.slice(0, 120));
     if (headerAlign) params.set('header_align', headerAlign);

@@ -25,6 +25,7 @@
   let exporting: string | null = $state(null);
   let exportError: string | null = $state(null);
   let pdfMargin: string = $state('standard');
+  let pdfOrientation: 'portrait' | 'landscape' = $state('portrait');
   let pdfHeader: string = $state('');
   let pdfFooter: string = $state('');
 
@@ -51,6 +52,11 @@
     { id: 'wide', label: 'Wide', desc: '3.5 cm' },
   ];
 
+  const orientationOptions = [
+    { id: 'portrait', label: 'Portrait', desc: 'Tall' },
+    { id: 'landscape', label: 'Landscape', desc: 'Wide' },
+  ] as const;
+
   function downloadBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -63,6 +69,7 @@
   function buildPDFOptions(): PDFExportOptions {
     return {
       margin: pdfMargin,
+      orientation: pdfOrientation,
       header: pdfHeader.trim(),
       footer: pdfFooter.trim(),
       headerAlign: $layoutConfig.headerAlign,
@@ -236,6 +243,22 @@
               class="margin-btn"
               class:active={pdfMargin === opt.id}
               onclick={() => pdfMargin = opt.id}
+            >
+              <span class="margin-btn-label">{opt.label}</span>
+              <span class="margin-btn-desc">{opt.desc}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="margin-selector">
+        <span class="margin-label">PDF orientation</span>
+        <div class="margin-options">
+          {#each orientationOptions as opt}
+            <button
+              class="margin-btn"
+              class:active={pdfOrientation === opt.id}
+              onclick={() => pdfOrientation = opt.id}
             >
               <span class="margin-btn-label">{opt.label}</span>
               <span class="margin-btn-desc">{opt.desc}</span>

@@ -190,6 +190,7 @@ type pdfMargins struct {
 }
 
 type pdfPageDecor struct {
+	Orientation      string // "portrait" (default) or "landscape"
 	Header           string
 	Footer           string
 	HeaderAlign      string
@@ -203,12 +204,15 @@ type pdfPageDecor struct {
 	BodyFontName     string
 }
 
-const maxPDFDecorLength = 120
-const defaultPDFDecorAlign = "center"
-const defaultExportHeadingTextColor = "#111111"
-const defaultExportH2TextColor = "#111111"
-const defaultExportH2UnderlineColor = "#cbd5e1"
-const defaultExportHeadingFont = "sans"
+const (
+	maxPDFDecorLength             = 120
+	defaultPDFDecorAlign          = "center"
+	defaultExportHeadingTextColor = "#111111"
+	defaultExportH2TextColor      = "#111111"
+	defaultExportH2UnderlineColor = "#cbd5e1"
+	defaultExportHeadingFont      = "sans"
+	defaultPDFOrientation         = "portrait"
+)
 
 var allowedExportFontNames = map[string]struct{}{
 	"Lora": {}, "Merriweather": {}, "Playfair Display": {}, "Source Serif 4": {}, "Tangerine": {},
@@ -216,8 +220,10 @@ var allowedExportFontNames = map[string]struct{}{
 	"Ubuntu": {}, "Nunito Sans": {}, "Raleway": {}, "Helvetica": {},
 }
 
-var cssContentEscaper = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
-var pdfHexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+var (
+	cssContentEscaper  = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
+	pdfHexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+)
 
 var marginPresets = map[string]pdfMargins{
 	"standard": {"2.2cm", "2.5cm", "2.5cm", "2.5cm"},
@@ -254,6 +260,7 @@ func asCM(v string) string {
 
 func parsePageDecor(r *http.Request) pdfPageDecor {
 	return pdfPageDecor{
+		Orientation:      sanitizeOrientation(r.URL.Query().Get("orientation")),
 		Header:           sanitizePDFDecor(r.URL.Query().Get("header")),
 		Footer:           sanitizePDFDecor(r.URL.Query().Get("footer")),
 		HeaderAlign:      sanitizePDFDecorAlign(r.URL.Query().Get("header_align"), defaultPDFDecorAlign),
@@ -290,6 +297,15 @@ func sanitizePDFHexColorWithDefault(raw string, fallback string) string {
 		return fallback
 	}
 	return color
+}
+
+func sanitizeOrientation(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "landscape":
+		return "landscape"
+	default:
+		return defaultPDFOrientation
+	}
 }
 
 func sanitizeHeadingFont(raw string) string {
@@ -471,6 +487,7 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	}
 
 	overrideMargins := m != marginPresets["standard"]
+	overrideOrientation := decor.Orientation == "landscape"
 	overrideHeader := decor.Header != ""
 	overrideFooter := decor.Footer != ""
 	overrideUnderline := decor.H1UnderlineColor != ""
@@ -480,7 +497,7 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	overrideHeadingFont := headingFont != defaultExportHeadingFont
 	overrideHeadingFontName := decor.HeadingFontName != ""
 	overrideBodyFontName := decor.BodyFontName != ""
-	overridePageDecor := overrideMargins || overrideHeader || overrideFooter
+	overridePageDecor := overrideMargins || overrideOrientation || overrideHeader || overrideFooter
 
 	if !overridePageDecor && !overrideUnderline && !overrideHeadingColor && !overrideH2TextColor && !overrideH2UnderlineColor && !overrideHeadingFont && !overrideHeadingFontName && !overrideBodyFontName {
 		return ""
@@ -491,6 +508,9 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 
 	if overridePageDecor {
 		css.WriteString("@page {")
+		if overrideOrientation {
+			css.WriteString(" size: A4 landscape;")
+		}
 		if overrideMargins {
 			fmt.Fprintf(&css, " margin: %s %s %s %s;", m.Top, m.Right, m.Bottom, m.Left)
 		}
@@ -528,7 +548,8 @@ func pageOverridesCSS(m pdfMargins, decor pdfPageDecor) string {
 	}
 
 	if overrideBodyFontName {
-		fmt.Fprintf(&css,
+		fmt.Fprintf(
+			&css,
 			" body, p, li, td, th, blockquote, dd { font-family: %s; }",
 			exportFontFamilyFromName(decor.BodyFontName, "'Lora', 'Liberation Serif', 'DejaVu Serif', Georgia, serif"),
 		)
@@ -618,7 +639,7 @@ func (h *exportHandler) export(w http.ResponseWriter, r *http.Request) {
 		content = preprocessPageBreaks(content)
 	}
 
-	if err := os.WriteFile(inputFile, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(inputFile, []byte(content), 0o600); err != nil {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
@@ -710,7 +731,7 @@ func (h *exportHandler) runPandocExport(ctx context.Context, inputFile, outputFi
 		}
 		headingCSS := fmt.Sprintf("h1,h2,h3,h4,h5,h6{color:%s;font-family:%s;} body,p,li,td,th,blockquote,dd{font-family:%s;} h1{border-bottom-color:%s;} h2{color:%s;border-bottom-color:%s;}", decor.HeadingTextColor, headingFamily, bodyFamily, defaultExportHeadingTextColor, h2TextColor, h2UnderlineColor)
 		cssFile := filepath.Join(filepath.Dir(outputFile), "export-heading.css")
-		if err := os.WriteFile(cssFile, []byte(headingCSS), 0600); err != nil {
+		if err := os.WriteFile(cssFile, []byte(headingCSS), 0o600); err != nil {
 			return fmt.Errorf("write export css: %w", err)
 		}
 		args = append(args, "--css", cssFile)
@@ -776,7 +797,7 @@ func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, o
 		}
 		// Inject right before </head>
 		modified := strings.Replace(string(htmlBytes), "</head>", overrides+"\n</head>", 1)
-		if err := os.WriteFile(htmlFile, []byte(modified), 0600); err != nil {
+		if err := os.WriteFile(htmlFile, []byte(modified), 0o600); err != nil {
 			return fmt.Errorf("write page override: %w", err)
 		}
 	}
@@ -851,7 +872,7 @@ func (h *exportHandler) exportRaw(w http.ResponseWriter, r *http.Request) {
 		rawContent = preprocessPageBreaks(rawContent)
 	}
 
-	if err := os.WriteFile(inputFile, []byte(rawContent), 0600); err != nil {
+	if err := os.WriteFile(inputFile, []byte(rawContent), 0o600); err != nil {
 		writeError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
