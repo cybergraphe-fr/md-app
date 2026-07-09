@@ -58,7 +58,7 @@ COPY pandoc/mermaid-ssr/render.mjs pandoc/mermaid-ssr/puppeteer.json pandoc/merm
 # ─────────────────────────────────────────────────────────────
 # Produces a statically-linked binary at /app/md (~15 MB).
 # CGO is disabled for a fully static build (no libc dependency).
-FROM golang:1.25-alpine AS go-build
+FROM golang:1.26-alpine AS go-build
 WORKDIR /src
 
 # Ensure the correct Go toolchain is used
