@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ═══════════════════════════════════════════════════════════════════════════
 # MD – Multi-stage Dockerfile
 # ═══════════════════════════════════════════════════════════════════════════
@@ -32,7 +33,8 @@ WORKDIR /src
 
 # Install dependencies (cached unless package*.json changes)
 COPY web/package*.json ./web/
-RUN cd web && npm ci --prefer-offline
+# Cache npm (/root/.npm) : le store des paquets persiste hors image entre builds
+RUN --mount=type=cache,target=/root/.npm cd web && npm ci --prefer-offline
 
 # Copy source and build the SPA
 COPY web/ ./web/
@@ -49,7 +51,8 @@ WORKDIR /mmdc
 COPY pandoc/mermaid-ssr/package.json ./
 # Skip Puppeteer's bundled Chromium download; we'll use Alpine's chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-RUN npm install --omit=dev
+# Cache npm (/root/.npm) partagé pour l'installation du renderer mermaid
+RUN --mount=type=cache,target=/root/.npm npm install --omit=dev
 COPY pandoc/mermaid-ssr/render.mjs pandoc/mermaid-ssr/puppeteer.json pandoc/mermaid-ssr/mermaid.config.json ./
 
 
@@ -72,13 +75,15 @@ RUN apk add --no-cache git
 
 # Download Go dependencies (cached unless go.mod/go.sum changes)
 COPY go.mod go.sum ./
-RUN go mod download
+# Cache des modules Go (/go/pkg/mod) : store de deps persistant entre builds
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 # Copy full source tree
 COPY . .
 
 # Run unit tests during build
-RUN go test -short ./...
+# Cache modules Go + cache de compilation (go-build) pour accélérer les tests
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go test -short ./...
 
 # Build args injected as linker flags into the binary
 ARG VERSION=dev
@@ -89,7 +94,9 @@ ARG BUILD_DATE=unknown
 #   -s -w     → strip debug info (smaller binary)
 #   -X main.* → inject version metadata at compile time
 #   -trimpath → reproducible builds (remove local paths from binary)
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+# Cache modules Go + cache de compilation (go-build) pour accélérer le build du binaire
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-s -w -X main.Version=${VERSION} -X main.GitSHA=${GIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -trimpath \
     -o /app/md \
