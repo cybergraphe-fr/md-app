@@ -86,7 +86,7 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npx svelte-check --tsconfig ./tsconfig.json
+        run: npm run check
 
       - name: Build
         run: npm run build
