@@ -40,9 +40,15 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 	oidcCfg := LoadOIDCConfig()
 	r.Use(OIDCMiddleware(oidcCfg))
 
-	// Workspace isolation: cookie-based workspace assignment
+	// Workspace isolation: cookie-based workspace assignment.
+	// NOTE: this middleware is applied ONLY to the workspace-scoped API group
+	// below — never globally. A global mount made every cookie-less request
+	// (health probes, static assets, SPA shell, bots) create a brand-new
+	// workspace + sync code on disk; infra health checks alone spawned ~1M
+	// orphan workspaces, and the resulting O(n) directory scan in
+	// LookupByWorkspace froze the service. Health/static/SPA never need a
+	// workspace, so they must not go through this middleware.
 	wsRegistry := NewWorkspaceRegistry(cfg.StoragePath)
-	r.Use(WorkspaceMiddleware(wsRegistry))
 
 	// Public endpoints
 	r.Get("/health", handleHealth(version))
@@ -85,8 +91,13 @@ func NewRouter(cfg *config.Config, c *cache.Client, version string) http.Handler
 	pluginReg := plugins.NewRegistry()
 	_ = pluginReg // available for future render pipeline integration
 
-	// API routes (protected by optional API key)
+	// API routes (protected by optional API key).
+	// WorkspaceMiddleware is scoped here so that only real workspace-scoped
+	// API calls bootstrap a workspace (a browser hitting /api/workspace or
+	// /api/files with no cookie), exactly as before — but health/static/SPA
+	// requests no longer do.
 	r.Group(func(r chi.Router) {
+		r.Use(WorkspaceMiddleware(wsRegistry))
 		r.Use(apiKeyMiddleware(cfg, oidcCfg != nil))
 
 		fh := newFilesHandler(cfg.StoragePath, c)
