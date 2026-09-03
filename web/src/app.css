@@ -309,9 +309,13 @@ html, body {
   border-radius: var(--radius);
 }
 .prose th, .prose td { border: 1px solid var(--border); padding: 0.55rem 0.9rem; text-align: left; }
-/* min-width : évite qu'une colonne courte (« 22 ») soit écrasée à un
-   caractère de large par une voisine très bavarde, même règle que print.css. */
-.prose td { word-break: break-word; min-width: 4em; }
+/* overflow-wrap: break-word (pas anywhere, pas word-break: break-word) : la
+   largeur minimale d'une colonne reste celle de son mot le plus long, donc un
+   timecode, une date ou un nombre ne se coupe jamais face à une colonne de
+   prose bavarde. Même règle que print.css. Seuls code et liens (hashes, URL)
+   peuvent casser n'importe où ; .table-scroll absorbe le reste. */
+.prose td { overflow-wrap: break-word; word-break: normal; min-width: 4em; }
+.prose td code, .prose td a { overflow-wrap: anywhere; }
 .prose th {
   background: var(--bg-surface);
   font-weight: 600;

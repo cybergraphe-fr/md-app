@@ -417,13 +417,23 @@ td {
   color: #334155;
   border: none;
   border-right: 0.5pt solid #f1f5f9;
-  /* Un mot très long (URL, hash) peut casser pour ne jamais déborder de la
-     page, maintenant que la largeur suit le contenu. Le min-width empêche
-     l'effet de bord de « anywhere » : sans lui, une colonne courte (« 22 »)
-     se fait écraser à un caractère de large par une colonne voisine très
-     bavarde (vérifié sur WeasyPrint 63, 2026-09-03). */
-  overflow-wrap: anywhere;
+  /* break-word (et surtout PAS anywhere) : la largeur minimale d'une colonne
+     reste celle de son mot le plus long, donc un timecode « 00:00.43 », une
+     date ou un nombre ne se coupe jamais en deux lignes, même à côté d'une
+     colonne de prose très bavarde (bug vu le 2026-09-03 : avec « anywhere »
+     WeasyPrint réduisait la colonne DÉBUT à un caractère de large). */
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
   min-width: 4em;
+}
+
+/* Les seuls contenus qu'on autorise à se couper n'importe où : hashes,
+   identifiants et URL, qui vivent en `code` ou en lien. Un mot brut trop
+   long pour la page débordera de la marge plutôt que de casser les colonnes
+   voisines, choix assumé. */
+td code, td a {
+  overflow-wrap: anywhere;
 }
 
 td:last-child {
