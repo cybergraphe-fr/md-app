@@ -109,6 +109,12 @@ func preprocessPageBreaks(content string) string {
 	return rePageBreak.ReplaceAllString(content, pageBreakDiv)
 }
 
+// reTaskListItem repère chaque <li> qui porte une case à cocher GFM (forme
+// exacte émise par pandoc 3.1 : <li><label><input type="checkbox" …>).
+// Le marquage est fait par item, pas par liste : une liste mixte (puces +
+// tâches) ne doit masquer la puce que sur les items à case.
+var reTaskListItem = regexp.MustCompile(`<li><label><input type="checkbox"`)
+
 // ─── Mermaid SSR for export ─────────────────────────────────
 // mermaidSSRScript is the path to the Node.js mermaid renderer.
 const mermaidSSRScript = "/app/mmdc/render.mjs"
@@ -797,17 +803,24 @@ func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, o
 		return fmt.Errorf("pandoc html stage: %w — %s", err, strings.TrimSpace(buf1.String()))
 	}
 
-	// Step 2 (optional): inject page overrides into the HTML
+	// Step 2: post-traitement du HTML pandoc.
+	//  - Injection des surcharges de page (marges, en-tête/pied, polices).
+	//  - Listes de tâches : pandoc 3.1 émet <ul> sans classe pour les cases à
+	//    cocher GFM, donc la règle « ul.task-list { list-style: none } » de
+	//    print.css ne s'appliquait jamais et chaque case était précédée d'une
+	//    puce (vu le 2026-09-03). WeasyPrint ne connaît pas :has(), on pose
+	//    la classe ici.
+	htmlBytes, err := os.ReadFile(htmlFile)
+	if err != nil {
+		return fmt.Errorf("read html: %w", err)
+	}
+	modified := reTaskListItem.ReplaceAllString(string(htmlBytes), `<li class="task-item"><label><input type="checkbox"`)
 	if overrides := pageOverridesCSS(margins, decor); overrides != "" {
-		htmlBytes, err := os.ReadFile(htmlFile)
-		if err != nil {
-			return fmt.Errorf("read html: %w", err)
-		}
 		// Inject right before </head>
-		modified := strings.Replace(string(htmlBytes), "</head>", overrides+"\n</head>", 1)
-		if err := os.WriteFile(htmlFile, []byte(modified), 0o600); err != nil {
-			return fmt.Errorf("write page override: %w", err)
-		}
+		modified = strings.Replace(modified, "</head>", overrides+"\n</head>", 1)
+	}
+	if err := os.WriteFile(htmlFile, []byte(modified), 0o600); err != nil {
+		return fmt.Errorf("write processed html: %w", err)
 	}
 
 	// Step 3: WeasyPrint → PDF

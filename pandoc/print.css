@@ -7,13 +7,42 @@
    document output at 2026 enterprise standards.
    ═══════════════════════════════════════════════════════════════════════ */
 
-@font-face {
-  font-family: 'Lora';
-  src: url('file:///app/pandoc/fonts/Lora-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Polices de l'export : les 13 familles proposées par le sélecteur (FontPicker)
+   sont embarquées ici, sinon WeasyPrint retombe en silence sur Liberation.
+   Fichiers « -Variable » = police variable Google Fonts (axe wght, parfois
+   opsz/wdth) déclarée sur toute la plage 100-900 : Pango choisit la graisse
+   demandée par font-weight, donc gras et gras-italique fonctionnent. Avant le
+   2026-09-03 seule Lora Regular était présente : **gras** et *italique* du
+   corps de texte sortaient en Regular dans le PDF. Poppins et Ubuntu n'existent
+   qu'en faces statiques (4 fichiers). Toutes sous licence OFL/UFL/Apache. */
+@font-face { font-family: 'Lora'; src: url('file:///app/pandoc/fonts/Lora-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Lora'; src: url('file:///app/pandoc/fonts/Lora-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Merriweather'; src: url('file:///app/pandoc/fonts/Merriweather-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Merriweather'; src: url('file:///app/pandoc/fonts/Merriweather-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Playfair Display'; src: url('file:///app/pandoc/fonts/PlayfairDisplay-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Playfair Display'; src: url('file:///app/pandoc/fonts/PlayfairDisplay-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Source Serif 4'; src: url('file:///app/pandoc/fonts/SourceSerif4-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Source Serif 4'; src: url('file:///app/pandoc/fonts/SourceSerif4-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Inter'; src: url('file:///app/pandoc/fonts/Inter-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Inter'; src: url('file:///app/pandoc/fonts/Inter-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Roboto'; src: url('file:///app/pandoc/fonts/Roboto-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Roboto'; src: url('file:///app/pandoc/fonts/Roboto-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Open Sans'; src: url('file:///app/pandoc/fonts/OpenSans-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Open Sans'; src: url('file:///app/pandoc/fonts/OpenSans-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Exo 2'; src: url('file:///app/pandoc/fonts/Exo2-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Exo 2'; src: url('file:///app/pandoc/fonts/Exo2-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Nunito Sans'; src: url('file:///app/pandoc/fonts/NunitoSans-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Nunito Sans'; src: url('file:///app/pandoc/fonts/NunitoSans-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Raleway'; src: url('file:///app/pandoc/fonts/Raleway-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Raleway'; src: url('file:///app/pandoc/fonts/Raleway-Italic-Variable.ttf') format('truetype'); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: 'Poppins'; src: url('file:///app/pandoc/fonts/Poppins-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Poppins'; src: url('file:///app/pandoc/fonts/Poppins-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Poppins'; src: url('file:///app/pandoc/fonts/Poppins-Italic.ttf') format('truetype'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Poppins'; src: url('file:///app/pandoc/fonts/Poppins-BoldItalic.ttf') format('truetype'); font-weight: 700; font-style: italic; }
+@font-face { font-family: 'Ubuntu'; src: url('file:///app/pandoc/fonts/Ubuntu-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Ubuntu'; src: url('file:///app/pandoc/fonts/Ubuntu-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Ubuntu'; src: url('file:///app/pandoc/fonts/Ubuntu-Italic.ttf') format('truetype'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Ubuntu'; src: url('file:///app/pandoc/fonts/Ubuntu-BoldItalic.ttf') format('truetype'); font-weight: 700; font-style: italic; }
 
 @font-face {
   font-family: 'Tangerine';
@@ -236,6 +265,9 @@ li > ul, li > ol { margin-top: 0.15rem; margin-bottom: 0.1rem; }
 /* ── Task lists (GFM checkboxes) ──────────────────────────────────── */
 ul.task-list { list-style: none; margin-left: 0; padding-left: 0; }
 ul.task-list li { position: relative; padding-left: 1.6em; }
+/* Classe posée côté serveur (export.go) sur chaque <li> à case à cocher :
+   pandoc n'en émet aucune, et WeasyPrint ne connaît pas :has(). */
+li.task-item { list-style: none; }
 
 input[type="checkbox"] {
   width: 0.85em;
@@ -535,9 +567,49 @@ a.footnote-back {
    § MATH (MathML)
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* WeasyPrint ne sait pas mettre en page le MathML : sans ces règles il
+   affiche le contenu à plat ET la source TeX portée par <annotation>
+   (« E=mc2E = mc^2 », vu le 2026-09-03). On masque l'annotation et on
+   approxime la structure courante en CSS : exposants/indices, fractions
+   empilées, racines, tableaux. Fidélité imparfaite sur les formules
+   complexes ; un rendu KaTeX côté serveur serait l'étape suivante. */
 math {
   font-family: 'DejaVu Math TeX Gyre', 'Liberation Serif', serif;
+  display: inline;
 }
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 0.8em 0;
+  font-size: 1.05em;
+}
+annotation, annotation-xml { display: none; }
+semantics, mrow, mi, mn, mo, mtext, mspace, mstyle, mpadded, mphantom { display: inline; }
+/* Liberation Serif en tête : DejaVu Math n'a pas de face italique et
+   WeasyPrint ne synthétise pas l'italique. */
+mi { font-family: 'Liberation Serif', 'DejaVu Serif', serif; font-style: italic; }
+mi[mathvariant="normal"] { font-style: normal; }
+mo { padding: 0 0.15em; }
+mspace { display: inline-block; }
+msup > :nth-child(2), msubsup > :nth-child(3) { vertical-align: super; font-size: 0.72em; }
+msub > :nth-child(2), msubsup > :nth-child(2) { vertical-align: sub; font-size: 0.72em; }
+msup, msub, msubsup, mfrac, msqrt, mroot, munder, mover, munderover { display: inline-block; vertical-align: middle; }
+mfrac { text-align: center; padding: 0 0.15em; }
+mfrac > * { display: block; }
+mfrac > :first-child { border-bottom: 0.6pt solid currentColor; padding: 0 0.2em 0.05em; }
+mfrac > :last-child { padding: 0.05em 0.2em 0; }
+msqrt::before { content: '√'; }
+msqrt, mroot { border-top: 0.6pt solid currentColor; padding: 0.05em 0.15em 0; }
+mroot > :nth-child(2) { vertical-align: super; font-size: 0.6em; }
+munder, mover, munderover { text-align: center; }
+munder > *, mover > *, munderover > * { display: block; }
+mover > :nth-child(2), munderover > :nth-child(3) { font-size: 0.72em; order: -1; }
+munder > :nth-child(2), munderover > :nth-child(2) { font-size: 0.72em; }
+mtable { display: inline-table; vertical-align: middle; border-collapse: collapse; width: auto; margin: 0.2em; border: none; font-size: 1em; }
+mtr { display: table-row; }
+mtd { display: table-cell; padding: 0.1em 0.4em; text-align: center; border: none; }
+mfenced::before { content: attr(open, '('); }
+mfenced::after { content: attr(close, ')'); }
 
 .math, .math.display {
   font-family: 'Liberation Serif', 'DejaVu Serif', serif;
