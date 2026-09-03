@@ -362,7 +362,14 @@ blockquote blockquote blockquote {
 
 table {
   border-collapse: collapse;
-  width: 100%;
+  /* Largeur des colonnes selon le contenu (même règle que l'aperçu, app.css) :
+     le tableau ne s'étire plus sur toute la largeur de page, il prend la place
+     que ses cellules demandent, plafonné à la zone imprimable A4. Côté Go,
+     export.go passe --columns à pandoc pour qu'il n'injecte plus de <col
+     style="width: N%"> à largeurs égales sur les tableaux larges. */
+  width: auto;
+  max-width: 100%;
+  table-layout: auto;
   margin: 1.2em 0;
   font-family: 'Liberation Sans', 'DejaVu Sans', sans-serif;
   font-size: 9pt;
@@ -410,6 +417,13 @@ td {
   color: #334155;
   border: none;
   border-right: 0.5pt solid #f1f5f9;
+  /* Un mot très long (URL, hash) peut casser pour ne jamais déborder de la
+     page, maintenant que la largeur suit le contenu. Le min-width empêche
+     l'effet de bord de « anywhere » : sans lui, une colonne courte (« 22 »)
+     se fait écraser à un caractère de large par une colonne voisine très
+     bavarde (vérifié sur WeasyPrint 63, 2026-09-03). */
+  overflow-wrap: anywhere;
+  min-width: 4em;
 }
 
 td:last-child {

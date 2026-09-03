@@ -290,7 +290,12 @@ html, body {
 
 .prose table {
   border-collapse: collapse;
-  width: 100%;
+  /* Largeur des colonnes selon le contenu : le tableau ne s'étire plus sur
+     toute la largeur, il occupe juste ce que ses cellules demandent (plafonné
+     à la largeur de l'aperçu, .table-scroll absorbe le reste en défilement). */
+  width: auto;
+  max-width: 100%;
+  table-layout: auto;
   margin: 0;
   font-size: 0.95em;
   border: 1px solid var(--border);
@@ -304,7 +309,9 @@ html, body {
   border-radius: var(--radius);
 }
 .prose th, .prose td { border: 1px solid var(--border); padding: 0.55rem 0.9rem; text-align: left; }
-.prose td { word-break: break-word; }
+/* min-width : évite qu'une colonne courte (« 22 ») soit écrasée à un
+   caractère de large par une voisine très bavarde, même règle que print.css. */
+.prose td { word-break: break-word; min-width: 4em; }
 .prose th {
   background: var(--bg-surface);
   font-weight: 600;

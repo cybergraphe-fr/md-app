@@ -776,6 +776,14 @@ func (h *exportHandler) runPDFExport(ctx context.Context, inputFile, htmlFile, o
 		"--standalone",
 		"--mathml",
 		"--highlight-style", "zenburn",
+		// Sans cette option, pandoc considère « large » tout tableau pipe dont
+		// une ligne dépasse 72 caractères et injecte <col style="width: N%">
+		// à largeurs égales : WeasyPrint fige alors les colonnes, quel que
+		// soit le contenu. Une largeur de référence énorme désactive ce
+		// comportement, print.css laisse ensuite les colonnes suivre le
+		// contenu (width: auto). Les grid tables gardent leurs largeurs
+		// explicites, c'est voulu.
+		"--columns", "1000000",
 		"--css", "/app/pandoc/print.css",
 		"-o", htmlFile,
 		inputFile,
