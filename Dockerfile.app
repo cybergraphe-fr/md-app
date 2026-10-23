@@ -108,7 +108,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # ─────────────────────────────────────────────────────────────
 # Minimal production image. Only the compiled binary, the SPA,
 # Pandoc templates, and system tools are included.
-FROM alpine:3.21 AS runtime
+FROM alpine:3.24 AS runtime
 # Note: upgrade to alpine:3.23 when available and tested
 
 # OCI image metadata (adjust source URL if you forked the project)
