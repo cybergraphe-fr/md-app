@@ -28,7 +28,7 @@
 # ─────────────────────────────────────────────────────────────
 # Produces a static SPA in /src/web/dist/ (adapter-static).
 # Only package.json + lock file are copied first for layer caching.
-FROM node:24-alpine AS web-build
+FROM node:26-alpine AS web-build
 WORKDIR /src
 
 # Install dependencies (cached unless package*.json changes)
@@ -46,7 +46,7 @@ RUN cd web && npm run build
 # ─────────────────────────────────────────────────────────────
 # Installs mermaid + happy-dom for server-side SVG rendering.
 # Used by the Go export pipeline to render mermaid diagrams in PDFs.
-FROM node:24-alpine AS mermaid-build
+FROM node:26-alpine AS mermaid-build
 WORKDIR /mmdc
 COPY pandoc/mermaid-ssr/package.json ./
 # Skip Puppeteer's bundled Chromium download; we'll use Alpine's chromium
