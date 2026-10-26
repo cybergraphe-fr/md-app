@@ -9,7 +9,7 @@
 #
 # Build stages:
 #   1. web-build  → Compile the SvelteKit frontend (Node 24)
-#   2. go-build   → Compile the Go binary with embedded metadata (Go 1.25)
+#   2. go-build   → Compile the Go binary with embedded metadata (Go 1.26)
 #   3. runtime    → Minimal Alpine image with Pandoc + WeasyPrint + fonts
 #
 # Build args (set via docker-compose or CI):
@@ -61,7 +61,7 @@ COPY pandoc/mermaid-ssr/render.mjs pandoc/mermaid-ssr/puppeteer.json pandoc/merm
 # ─────────────────────────────────────────────────────────────
 # Produces a statically-linked binary at /app/md (~15 MB).
 # CGO is disabled for a fully static build (no libc dependency).
-FROM golang:1.25-alpine AS go-build
+FROM golang:1.26-alpine AS go-build
 WORKDIR /src
 
 # Ensure the correct Go toolchain is used
@@ -129,7 +129,8 @@ LABEL org.opencontainers.image.licenses="GPL-3.0"
 #   font-noto-emoji → Noto Emoji glyphs for PDF emoji rendering (WeasyPrint)
 #   nodejs          → Required for mermaid SSR (PDF diagram rendering)
 #   chromium        → Headless browser for mermaid-cli SVG rendering
-RUN apk add --no-cache \
+# apk upgrade first: pulls the Alpine security fixes published after the base image (VOC 26/10/2026).
+RUN apk upgrade --no-cache && apk add --no-cache \
     pandoc \
     py3-weasyprint \
     ca-certificates \

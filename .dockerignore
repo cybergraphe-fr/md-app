@@ -3,3 +3,4 @@ postgres_data/
 backups/
 logs/
 *.log
+pandoc/mermaid-ssr/node_modules/
