@@ -143,6 +143,8 @@ RUN apk upgrade --no-cache && apk add --no-cache \
     nodejs \
     chromium \
     && rm -rf /var/cache/apk/*
+# 2026-11-13 : KEV CVE-2026-125350 (libxslt)
+RUN apk upgrade --no-cache libxslt && rm -rf /var/cache/apk/*
 
 # Tell Puppeteer to use system-installed Chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
